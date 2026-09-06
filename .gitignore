@@ -1,0 +1,40 @@
+# Python & Byte-compiled
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Datasets (Images & Labels except .gitkeep)
+dataset/**/*.jpg
+dataset/**/*.jpeg
+dataset/**/*.png
+dataset/**/*.txt
+!dataset/**/.gitkeep
+
+# Model weights
+*.pt
+*.pth
+*.onnx
+*.engine
+!models/.gitkeep
+
+# Runs and experiment outputs
+runs/
+results/**/*.png
+results/**/*.csv
+results/**/*.json
+!results/.gitkeep
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
