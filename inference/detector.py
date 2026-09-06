@@ -66,14 +66,29 @@ class TSRDetector:
             x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
             conf = float(box.conf[0].item())
             cls_id = int(box.cls[0].item())
+            raw_label = ""
             if hasattr(self.model, "names") and isinstance(self.model.names, dict) and cls_id in self.model.names:
-                label = self.model.names[cls_id]
+                raw_label = str(self.model.names[cls_id]).strip()
             elif hasattr(self.model, "names") and isinstance(self.model.names, list) and cls_id < len(self.model.names):
-                label = self.model.names[cls_id]
+                raw_label = str(self.model.names[cls_id]).strip()
             elif cls_id < len(CLASSES):
-                label = CLASSES[cls_id]
+                raw_label = CLASSES[cls_id]
             else:
-                label = f"Sign_{cls_id}"
+                raw_label = f"Sign_{cls_id}"
+
+            # Filter out non-sign Roboflow metadata artifact labels
+            if any(raw_label.startswith(pfx) for pfx in ["*", "=", "Roboflow", "The ", "For ", "To ", "Traffic-sign", "traffic sign", "visit ", "annotate"]):
+                continue
+
+            # Format label cleanly
+            if raw_label.isdigit():
+                val = int(raw_label)
+                if val in [20, 30, 40, 50, 60, 70, 80, 90, 100, 120]:
+                    label = f"Speed Limit {val}"
+                else:
+                    label = f"Traffic Sign {val}"
+            else:
+                label = raw_label
 
             detections.append({
                 "bbox": (x1, y1, x2, y2),
