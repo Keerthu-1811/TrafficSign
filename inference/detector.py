@@ -66,7 +66,14 @@ class TSRDetector:
             x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
             conf = float(box.conf[0].item())
             cls_id = int(box.cls[0].item())
-            label = CLASSES[cls_id] if cls_id < len(CLASSES) else f"Sign_{cls_id}"
+            if hasattr(self.model, "names") and isinstance(self.model.names, dict) and cls_id in self.model.names:
+                label = self.model.names[cls_id]
+            elif hasattr(self.model, "names") and isinstance(self.model.names, list) and cls_id < len(self.model.names):
+                label = self.model.names[cls_id]
+            elif cls_id < len(CLASSES):
+                label = CLASSES[cls_id]
+            else:
+                label = f"Sign_{cls_id}"
 
             detections.append({
                 "bbox": (x1, y1, x2, y2),
