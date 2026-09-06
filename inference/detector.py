@@ -110,13 +110,31 @@ class TSRDetector:
 
 def main():
     parser = argparse.ArgumentParser(description="TSR YOLOv8 Inference")
-    parser.add_argument("--source", type=str, default="0", help="Camera index, image path, or video path")
+    parser.add_argument("--source", type=str, default="dataset/test/images/syn_tsr_test_0001.jpg", help="Camera index, image path, or video path")
     parser.add_argument("--weights", type=str, default="models/best.pt", help="Path to trained weights")
-    parser.add_argument("--conf", type=float, default=0.35, help="Confidence threshold")
+    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
+    parser.add_argument("--output", type=str, default="results/detected_output.jpg", help="Output path for annotated image")
     args = parser.parse_args()
 
     detector = TSRDetector(weights_path=args.weights, conf_thresh=args.conf)
-    print("Detector initialized. Ready for inference.")
+    
+    if os.path.exists(args.source):
+        print(f"[INFO] Processing image: {args.source}")
+        frame = cv2.imread(args.source)
+        if frame is None:
+            print(f"[ERROR] Could not read image at: {args.source}")
+            return
+        
+        annotated, detections = detector.detect(frame)
+        print(f"[RESULT] Detected {len(detections)} traffic sign(s):")
+        for i, det in enumerate(detections, 1):
+            print(f"  {i}. {det['label']} (Confidence: {det['conf']:.2f}, Box: {det['bbox']})")
+        
+        os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
+        cv2.imwrite(args.output, annotated)
+        print(f"[SAVED] Annotated image saved to: {args.output}")
+    else:
+        print(f"[INFO] Source '{args.source}' is not a local file. For webcam or video stream, use realtime_demo.py.")
 
 if __name__ == "__main__":
     main()
