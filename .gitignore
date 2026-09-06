@@ -13,6 +13,7 @@ ENV/
 .ipynb_checkpoints/
 
 # Datasets (Images & Labels except .gitkeep)
+*.zip
 dataset/**/*.jpg
 dataset/**/*.jpeg
 dataset/**/*.png
