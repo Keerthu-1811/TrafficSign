@@ -16,6 +16,103 @@ CLASSES = [
     "Left Turn", "Right Turn", "U-Turn", "Horn Prohibited", "Parking", "Dangerous Curve"
 ]
 
+# Comprehensive mapping for standard GTSRB & Indian Traffic Sign (IRC) numerical IDs
+SIGN_NAME_MAP = {
+    # Speed Limits
+    "0": "Speed Limit 20",
+    "1": "Speed Limit 30",
+    "2": "Speed Limit 50",
+    "3": "Speed Limit 60",
+    "4": "Speed Limit 70",
+    "5": "Speed Limit 80",
+    "6": "End of Speed Limit 80",
+    "7": "Speed Limit 100",
+    "8": "Speed Limit 120",
+    "20": "Speed Limit 20",
+    "30": "Speed Limit 30",
+    "40": "Speed Limit 40",
+    "50": "Speed Limit 50",
+    "60": "Speed Limit 60",
+    "70": "Speed Limit 70",
+    "80": "Speed Limit 80",
+    "90": "Speed Limit 90",
+    "100": "Speed Limit 100",
+    "120": "Speed Limit 120",
+
+    # Priority & Prohibitory
+    "9": "No Passing / Overtaking",
+    "10": "No Heavy Vehicles",
+    "11": "Priority at Intersection",
+    "12": "Priority Road",
+    "13": "Give Way / Yield",
+    "14": "Stop Sign",
+    "15": "No Vehicles",
+    "16": "No Commercial Trucks",
+    "17": "No Entry",
+    "18": "General Caution Ahead",
+
+    # Hazards & Curves
+    "19": "Dangerous Left Curve",
+    "20": "Dangerous Right Curve",
+    "21": "Double Curve Ahead",
+    "22": "Bumpy / Rough Road",
+    "23": "Slippery Road",
+    "24": "Road Narrows on Right",
+    "25": "Road Work Ahead",
+    "26": "Traffic Light Ahead",
+    "27": "Pedestrian Crossing",
+    "28": "School Ahead / Children",
+    "29": "Bicycle Crossing",
+    "30": "Snow / Ice Caution",
+    "31": "Wild Animals Crossing",
+    "32": "End of Restrictions",
+
+    # Mandatory Direction Signs (Arrows & Turns)
+    "33": "Turn Right Ahead",
+    "34": "Turn Left Ahead",
+    "35": "Ahead Only",
+    "36": "Straight or Right Turn",
+    "37": "Straight or Left Turn",
+    "38": "Keep Right",
+    "39": "Keep Left",
+    "40": "Roundabout Mandatory",
+    "41": "End of No Passing",
+    "42": "End of No Passing (Trucks)",
+
+    # Extended Indian Road Signs (43 - 73)
+    "43": "Left Curve",
+    "44": "Right Curve",
+    "45": "Left Hairpin Bend",
+    "46": "Right Hairpin Bend",
+    "47": "Left Reverse Bend",
+    "48": "Right Reverse Bend",
+    "49": "Steep Ascent",
+    "50": "Steep Descent",
+    "51": "Narrow Road Ahead",
+    "52": "Narrow Bridge Ahead",
+    "53": "U-Turn / Median Opening",
+    "54": "Side Road Right",
+    "55": "Side Road Left",
+    "56": "Roundabout Ahead",
+    "57": "Dangerous Dip",
+    "58": "Speed Breaker Ahead",
+    "59": "Barrier Ahead",
+    "60": "Horn Prohibited",
+    "61": "No Parking",
+    "62": "No Stopping",
+    "63": "Right Turn",
+    "64": "Left Turn",
+    "65": "Parking Area",
+    "66": "Hospital Ahead",
+    "67": "First Aid Post",
+    "68": "Restaurant Ahead",
+    "69": "Refreshments Ahead",
+    "70": "Resting Place",
+    "71": "Petrol Pump",
+    "72": "Compulsory Left Turn",
+    "73": "Compulsory Right Turn",
+}
+
 # Distinct colors (BGR) for bounding box visualization
 COLOR_PALETTE = [
     (0, 0, 220), (30, 30, 200), (0, 165, 255), (0, 200, 255), (0, 255, 255),
@@ -77,18 +174,21 @@ class TSRDetector:
                 raw_label = f"Sign_{cls_id}"
 
             # Filter out non-sign Roboflow metadata artifact labels
-            if any(raw_label.startswith(pfx) for pfx in ["*", "=", "Roboflow", "The ", "For ", "To ", "Traffic-sign", "traffic sign", "visit ", "annotate"]):
+            if any(raw_label.startswith(pfx) for pfx in ["*", "=", "Roboflow", "The ", "For ", "To ", "Traffic-sign are", "traffic sign -", "visit ", "annotate"]):
                 continue
 
-            # Format label cleanly
-            if raw_label.isdigit():
-                val = int(raw_label)
-                if val in [20, 30, 40, 50, 60, 70, 80, 90, 100, 120]:
-                    label = f"Speed Limit {val}"
-                else:
-                    label = f"Traffic Sign {val}"
+            # Format label cleanly using comprehensive SIGN_NAME_MAP
+            clean_key = raw_label.strip()
+            if clean_key in SIGN_NAME_MAP:
+                label = SIGN_NAME_MAP[clean_key]
+            elif clean_key.isdigit() and str(int(clean_key)) in SIGN_NAME_MAP:
+                label = SIGN_NAME_MAP[str(int(clean_key))]
+            elif clean_key.lower() in ["traffic-sign", "traffic sign"]:
+                label = "Traffic Sign"
+            elif cls_id < len(CLASSES):
+                label = CLASSES[cls_id]
             else:
-                label = raw_label
+                label = f"Sign {raw_label}"
 
             detections.append({
                 "bbox": (x1, y1, x2, y2),

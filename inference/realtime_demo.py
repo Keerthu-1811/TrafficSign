@@ -41,6 +41,7 @@ def run_demo(source="0", yolo_weights="models/best.pt", classifier_weights="mode
 
     # Frame timing
     prev_time = time.time()
+    last_log_time = 0.0
     fps = 0.0
 
     os.makedirs("results", exist_ok=True)
@@ -57,8 +58,13 @@ def run_demo(source="0", yolo_weights="models/best.pt", classifier_weights="mode
         annotated_frame, detections = pipeline.process_frame(frame)
         latency_ms = (time.time() - start_inf) * 1000.0
 
-        # Calculate FPS
         curr_time = time.time()
+        if len(detections) > 0 and (curr_time - last_log_time > 1.0):
+            last_log_time = curr_time
+            det_summary = ", ".join([f"{d['label']} ({d['conf']*100:.0f}%)" for d in detections])
+            print(f"[LIVE DETECT] {det_summary}")
+
+        # Calculate FPS
         fps = 0.9 * fps + 0.1 * (1.0 / max(1e-5, (curr_time - prev_time)))
         prev_time = curr_time
 
