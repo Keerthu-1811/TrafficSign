@@ -226,13 +226,27 @@ col_left, col_right = st.columns([5, 7])
 with col_left:
     st.markdown("#### 📷 Perception & Vision Feed")
 
-    sample_photos = sorted([str(p) for p in Path("Test Photos").glob("*.*")])
-    input_choice = st.selectbox("Select Traffic Sign Test Scene:", sample_photos, index=0)
+    source_mode = st.radio("Select Input Mode:", ["📁 Upload Sign Photo", "🖼️ Sample Test Photo Presets"], horizontal=True)
 
-    img_bgr = cv2.imread(input_choice)
+    img_bgr = None
+    if source_mode == "📁 Upload Sign Photo":
+        uploaded_file = st.file_uploader("Upload a traffic sign photo:", type=["jpg", "jpeg", "png", "webp"])
+        if uploaded_file is not None:
+            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+            img_bgr = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        else:
+            st.info("👆 Please upload an image of an Indian traffic sign to run detection.")
+    else:
+        sample_photos = sorted([str(p) for p in Path("Test Photos").glob("*.*")])
+        input_choice = st.selectbox("Select Traffic Sign Test Scene:", sample_photos, index=0)
+        img_bgr = cv2.imread(input_choice)
+
     if img_bgr is not None:
+        # Reset smoother tracks for discrete static photo to prevent carry-over from previous images
         if pipeline.smoother is not None:
             pipeline.smoother.tracks.clear()
+            pipeline.smoother.next_id = 0
+
         annotated_frame, detections = pipeline.process_frame(img_bgr, conf=conf_threshold)
 
         primary_sign_id = None
@@ -241,6 +255,8 @@ with col_left:
             top_det = max(detections, key=lambda d: d.get("conf", 0.0))
             primary_sign_id = top_det.get("class_id")
             primary_conf = top_det.get("conf", 0.0)
+        else:
+            st.warning("⚠️ No traffic sign detected at current confidence threshold. Try lowering the 'Vision Confidence Gate' slider in the sidebar.")
 
         # Decision Engine
         result = engine.check(
@@ -260,6 +276,14 @@ with col_left:
             clahe_enabled=False,
         )
         st.image(cv2.cvtColor(hud_frame, cv2.COLOR_BGR2RGB), use_container_width=True)
+    else:
+        # Placeholder result when no image is uploaded
+        result = engine.check(
+            sign_id=None,
+            speed_kmh=float(simulated_speed),
+            confidence=0.0,
+        )
+        primary_conf = 0.0
 
 with col_right:
     st.markdown("#### 🏎️ Digital Instrument Cluster")

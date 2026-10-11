@@ -742,10 +742,93 @@
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(evt) {
-        document.getElementById("feedImage").src = evt.target.result;
-        logEvent(`Custom image uploaded: ${file.name}`);
-        // Trigger generic detection mock or backend call
+      reader.onload = async function(evt) {
+        const base64Data = evt.target.result;
+        document.getElementById("feedImage").src = base64Data;
+        logEvent(`Uploaded photo: ${file.name}. Scanning with YOLOv8...`);
+        
+        // Show scanning state in HUD
+        const confTag = document.getElementById("visionConfidence");
+        confTag.innerText = "Scanning with YOLOv8...";
+        confTag.className = "text-xs font-mono-code text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40 animate-pulse";
+
+        try {
+          const resp = await fetch("/api/detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              image: base64Data,
+              speed_kmh: currentSpeed,
+              confidence_threshold: 0.25
+            })
+          });
+
+          if (!resp.ok) {
+            throw new Error(`Server returned HTTP ${resp.status}`);
+          }
+
+          const data = await resp.json();
+          const bbox = document.getElementById("bboxOverlay");
+          const bboxLabel = document.getElementById("bboxLabel");
+          const detectedSignName = document.getElementById("detectedSignName");
+          const detectedClassId = document.getElementById("detectedClassId");
+
+          if (data.detected && data.primary_sign_name) {
+            currentSignId = data.primary_sign_id;
+            currentSignName = data.primary_sign_name;
+            currentConfidence = data.confidence;
+            if (data.active_speed_limit !== null && data.active_speed_limit !== undefined) {
+              activeLimit = data.active_speed_limit;
+            }
+
+            // Position Bounding Box proportionally
+            if (data.bbox && data.image_width && data.image_height) {
+              const x1 = data.bbox[0];
+              const y1 = data.bbox[1];
+              const x2 = data.bbox[2];
+              const y2 = data.bbox[3];
+              
+              const leftPct = (x1 / data.image_width) * 100;
+              const topPct = (y1 / data.image_height) * 100;
+              const widthPct = ((x2 - x1) / data.image_width) * 100;
+              const heightPct = ((y2 - y1) / data.image_height) * 100;
+
+              bbox.style.display = "flex";
+              bbox.style.left = `${leftPct.toFixed(1)}%`;
+              bbox.style.top = `${topPct.toFixed(1)}%`;
+              bbox.style.width = `${widthPct.toFixed(1)}%`;
+              bbox.style.height = `${heightPct.toFixed(1)}%`;
+              bboxLabel.innerText = `${currentSignName} [${Math.round(currentConfidence * 100)}%]`;
+            }
+
+            detectedSignName.innerText = currentSignName;
+            detectedClassId.innerText = currentSignId;
+            confTag.innerText = `Confidence: ${Math.round(currentConfidence * 100)}%`;
+            confTag.className = "text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40";
+
+            renderUI();
+            logEvent(`Detected: ${currentSignName} (${Math.round(currentConfidence * 100)}%)`);
+          } else {
+            // No sign found in uploaded image
+            currentSignId = null;
+            currentSignName = "None Detected";
+            currentConfidence = 0.0;
+            bbox.style.display = "none";
+
+            detectedSignName.innerText = "No Sign Detected";
+            detectedClassId.innerText = "--";
+            confTag.innerText = "No Sign Found";
+            confTag.className = "text-xs font-mono-code text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800";
+
+            renderUI();
+            logEvent(`No traffic sign detected in ${file.name}`);
+          }
+        } catch (err) {
+          console.error("Detection error:", err);
+          confTag.innerText = "Detection Error";
+          confTag.className = "text-xs font-mono-code text-rose-400 bg-rose-950/40 px-2 py-0.5 rounded border border-rose-800/40";
+          logEvent(`Detection error: ${err.message}`);
+        }
       };
       reader.readAsDataURL(file);
     }
