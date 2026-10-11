@@ -49,6 +49,19 @@ class ADASCockpitHandler(SimpleHTTPRequestHandler):
             return str(PROJECT_ROOT / rel_path)
         return super().translate_path(path)
 
+    def do_GET(self):
+        parsed = urlparse(self.path).path
+        if parsed == "/api/photos":
+            photo_dir = PROJECT_ROOT / "Test Photos"
+            photos = sorted([p.name for p in photo_dir.glob("*.*") if p.suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]])
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(photos).encode("utf-8"))
+            return
+        return super().do_GET()
+
     def do_POST(self):
         parsed = urlparse(self.path).path
 

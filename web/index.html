@@ -221,8 +221,22 @@
           </div>
         </div>
 
+        <!-- Test Photos Library Picker (59 Authentic Samples) -->
+        <div class="mt-1 pt-2.5 border-t border-slate-800/80">
+          <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="images" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>Test Photos Library:</span>
+            </span>
+            <span id="photoCountTag" class="text-cyan-400 font-mono-code text-[10px]">59 Photos</span>
+          </label>
+          <select id="photoLibrarySelect" onchange="loadFromPhotoLibrary(this.value)" class="w-full bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer font-mono-code">
+            <option value="">-- Choose from 59 Test Photos --</option>
+          </select>
+        </div>
+
         <!-- Custom Photo Upload Dropzone -->
-        <div class="mt-1 pt-3 border-t border-slate-800/80">
+        <div class="mt-2 pt-2 border-t border-slate-800/80">
           <label class="cursor-pointer flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-slate-700 hover:border-cyan-500 hover:bg-cyan-950/10 text-xs text-slate-400 hover:text-cyan-300 transition">
             <i data-lucide="upload" class="w-4 h-4"></i>
             <span>Upload or Drop Custom Sign Photo</span>
@@ -1045,59 +1059,7 @@
           }
 
           const data = await resp.json();
-          const bbox = document.getElementById("bboxOverlay");
-          const bboxLabel = document.getElementById("bboxLabel");
-          const detectedSignName = document.getElementById("detectedSignName");
-          const detectedClassId = document.getElementById("detectedClassId");
-
-          if (data.detected && data.primary_sign_name) {
-            currentSignId = data.primary_sign_id;
-            currentSignName = data.primary_sign_name;
-            currentConfidence = data.confidence;
-            if (data.active_speed_limit !== null && data.active_speed_limit !== undefined) {
-              activeLimit = data.active_speed_limit;
-            }
-
-            if (data.bbox && data.image_width && data.image_height) {
-              const x1 = data.bbox[0];
-              const y1 = data.bbox[1];
-              const x2 = data.bbox[2];
-              const y2 = data.bbox[3];
-              
-              const leftPct = (x1 / data.image_width) * 100;
-              const topPct = (y1 / data.image_height) * 100;
-              const widthPct = ((x2 - x1) / data.image_width) * 100;
-              const heightPct = ((y2 - y1) / data.image_height) * 100;
-
-              bbox.style.display = "flex";
-              bbox.style.left = `${leftPct.toFixed(1)}%`;
-              bbox.style.top = `${topPct.toFixed(1)}%`;
-              bbox.style.width = `${widthPct.toFixed(1)}%`;
-              bbox.style.height = `${heightPct.toFixed(1)}%`;
-              bboxLabel.innerText = `${currentSignName} [${Math.round(currentConfidence * 100)}%]`;
-            }
-
-            detectedSignName.innerText = currentSignName;
-            detectedClassId.innerText = currentSignId;
-            confTag.innerText = `Confidence: ${Math.round(currentConfidence * 100)}%`;
-            confTag.className = "text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40";
-
-            renderUI();
-            logEvent(`Detected: ${currentSignName} (${Math.round(currentConfidence * 100)}%)`);
-          } else {
-            currentSignId = null;
-            currentSignName = "None Detected";
-            currentConfidence = 0.0;
-            bbox.style.display = "none";
-
-            detectedSignName.innerText = "No Sign Detected";
-            detectedClassId.innerText = "--";
-            confTag.innerText = "No Sign Found";
-            confTag.className = "text-xs font-mono-code text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800";
-
-            renderUI();
-            logEvent(`No traffic sign detected in ${file.name}`);
-          }
+          handleDetectionResult(data, file.name);
         } catch (err) {
           console.error("Detection error:", err);
           confTag.innerText = "Detection Error";
@@ -1108,8 +1070,127 @@
       reader.readAsDataURL(file);
     }
 
+    function handleDetectionResult(data, displayName) {
+      const confTag = document.getElementById("visionConfidence");
+      const bbox = document.getElementById("bboxOverlay");
+      const bboxLabel = document.getElementById("bboxLabel");
+      const detectedSignName = document.getElementById("detectedSignName");
+      const detectedClassId = document.getElementById("detectedClassId");
+
+      if (data.detected && data.primary_sign_name) {
+        currentSignId = data.primary_sign_id;
+        currentSignName = data.primary_sign_name;
+        currentConfidence = data.confidence;
+        if (data.active_speed_limit !== null && data.active_speed_limit !== undefined) {
+          activeLimit = data.active_speed_limit;
+        }
+
+        if (data.bbox && data.image_width && data.image_height) {
+          const x1 = data.bbox[0];
+          const y1 = data.bbox[1];
+          const x2 = data.bbox[2];
+          const y2 = data.bbox[3];
+          
+          const leftPct = (x1 / data.image_width) * 100;
+          const topPct = (y1 / data.image_height) * 100;
+          const widthPct = ((x2 - x1) / data.image_width) * 100;
+          const heightPct = ((y2 - y1) / data.image_height) * 100;
+
+          bbox.style.display = "flex";
+          bbox.style.left = `${leftPct.toFixed(1)}%`;
+          bbox.style.top = `${topPct.toFixed(1)}%`;
+          bbox.style.width = `${widthPct.toFixed(1)}%`;
+          bbox.style.height = `${heightPct.toFixed(1)}%`;
+          bboxLabel.innerText = `${currentSignName} [${Math.round(currentConfidence * 100)}%]`;
+        }
+
+        detectedSignName.innerText = currentSignName;
+        detectedClassId.innerText = currentSignId;
+        confTag.innerText = `Confidence: ${Math.round(currentConfidence * 100)}%`;
+        confTag.className = "text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40";
+
+        renderUI();
+        logEvent(`Detected: ${currentSignName} (${Math.round(currentConfidence * 100)}%) in ${displayName}`);
+      } else {
+        currentSignId = null;
+        currentSignName = "None Detected";
+        currentConfidence = 0.0;
+        bbox.style.display = "none";
+
+        detectedSignName.innerText = "No Sign Detected";
+        detectedClassId.innerText = "--";
+        confTag.innerText = "No Sign Found";
+        confTag.className = "text-xs font-mono-code text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800";
+
+        renderUI();
+        logEvent(`No traffic sign detected in ${displayName}`);
+      }
+    }
+
+    async function initPhotoLibrary() {
+      try {
+        const resp = await fetch("/api/photos");
+        if (resp.ok) {
+          const photos = await resp.json();
+          const sel = document.getElementById("photoLibrarySelect");
+          const countTag = document.getElementById("photoCountTag");
+          if (countTag) countTag.innerText = `${photos.length} Photos`;
+
+          sel.innerHTML = `<option value="">-- Choose from ${photos.length} Test Photos --</option>`;
+          photos.forEach(p => {
+            const opt = document.createElement("option");
+            opt.value = p;
+            opt.innerText = p;
+            sel.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        console.warn("Could not load /api/photos:", err);
+      }
+    }
+
+    async function loadFromPhotoLibrary(filename) {
+      if (!filename) return;
+      const url = `/Test Photos/${encodeURIComponent(filename)}`;
+      document.getElementById("feedImage").src = url;
+      logEvent(`Loaded: ${filename}. Scanning with YOLOv8...`);
+
+      const confTag = document.getElementById("visionConfidence");
+      confTag.innerText = "Scanning with YOLOv8...";
+      confTag.className = "text-xs font-mono-code text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40 animate-pulse";
+
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const b64 = reader.result;
+          const detectResp = await fetch("/api/detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              image: b64,
+              speed_kmh: currentSpeed,
+              heading_deg: currentHeading,
+              horn_active: hornActive,
+              pedestrian_present: pedestrianPresent,
+              confidence_threshold: 0.25
+            })
+          });
+          if (detectResp.ok) {
+            const data = await detectResp.json();
+            handleDetectionResult(data, filename);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.error("Library load error:", err);
+      }
+    }
+
     window.onload = function() {
       loadScenario("sl20");
+      initPhotoLibrary();
     };
   </script>
 </body>
