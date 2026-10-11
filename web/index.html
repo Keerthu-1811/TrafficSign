@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Indian ADAS | Traffic Sign & Driver Compliance Digital Cockpit</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for Telemetry -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 10%, #131722 0%, #080a0f 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .font-hud {
+      font-family: 'Orbitron', monospace;
+    }
+
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .glass-card {
+      background: rgba(18, 24, 38, 0.75);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Glow effects */
+    .glow-green {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.35);
+      border-color: rgba(16, 185, 129, 0.6) !important;
+    }
+    .glow-red {
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+      border-color: rgba(239, 68, 68, 0.7) !important;
+      animation: pulse-red 1.8s infinite;
+    }
+    .glow-amber {
+      box-shadow: 0 0 25px rgba(245, 158, 11, 0.35);
+      border-color: rgba(245, 158, 11, 0.6) !important;
+    }
+    .glow-cyan {
+      box-shadow: 0 0 25px rgba(6, 182, 212, 0.35);
+      border-color: rgba(6, 182, 212, 0.6) !important;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+      50% { box-shadow: 0 0 35px rgba(239, 68, 68, 0.65); }
+    }
+
+    /* European / Indian IRC Circular Speed Sign Badge */
+    .irc-sign {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 9px solid #dc2626;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(220, 38, 38, 0.45), inset 0 0 8px rgba(0,0,0,0.15);
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    /* Range slider styling */
+    input[type=range] {
+      accent-color: #06b6d4;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-6 lg:p-8">
+
+  <!-- TOP HEADER / STATUS BAR -->
+  <header class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <i data-lucide="shield-alert" class="w-6 h-6 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <span>AI TSR & Driver Compliance</span>
+          <span class="px-2 py-0.5 text-xs font-hud rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">ADAS Cockpit</span>
+        </h1>
+        <p class="text-xs text-slate-400">Context-Aware Indian Road Compliance & Perception Engine</p>
+      </div>
+    </div>
+
+    <!-- Live Telemetry Pill & Audio Controls -->
+    <div class="flex items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-slate-400">Model:</span>
+        <span class="font-semibold text-emerald-400 font-mono-code">YOLOv8n (15 Classes)</span>
+      </div>
+
+      <button id="voiceToggleBtn" onclick="toggleAudio()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
+        <i id="voiceIcon" data-lucide="volume-2" class="w-4 h-4 text-cyan-400"></i>
+        <span id="voiceText">Audio Voice: ON</span>
+      </button>
+
+      <button onclick="resetContext()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/40 border border-slate-700 hover:border-rose-700/50 text-xs text-slate-300 hover:text-rose-300 transition">
+        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+        <span>Reset Context</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN COCKPIT GRID -->
+  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+    <!-- LEFT COLUMN: CAMERA / VISION FEED (5 Cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-5">
+      <!-- Video / Sign Viewer Card -->
+      <div class="glass-card rounded-2xl p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="camera" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Live Perception Feed</span>
+          </div>
+          <span id="visionConfidence" class="text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+            Confidence: 94%
+          </span>
+        </div>
+
+        <!-- Vision Canvas Area -->
+        <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center group">
+          <img id="feedImage" src="" alt="Traffic Sign Feed" class="w-full h-full object-cover">
+          
+          <!-- HUD HUD Corner Accents -->
+          <div class="absolute top-2 left-2 border-t-2 border-l-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
+          <div class="absolute top-2 right-2 border-t-2 border-r-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
+          <div class="absolute bottom-2 left-2 border-b-2 border-l-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
+          <div class="absolute bottom-2 right-2 border-b-2 border-r-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
+
+          <!-- Bounding Box Overlay -->
+          <div id="bboxOverlay" class="absolute border-2 border-emerald-400 bg-emerald-500/10 rounded pointer-events-none transition-all duration-300 flex flex-col justify-start">
+            <span id="bboxLabel" class="bg-emerald-500 text-slate-950 text-[11px] font-bold px-1.5 py-0.5 rounded-sm inline-block self-start font-mono-code">
+              Speed Limit 40 [94%]
+            </span>
+          </div>
+
+          <!-- Floating Sign Pill -->
+          <div class="absolute bottom-3 left-3 right-3 bg-slate-900/85 backdrop-blur-md border border-slate-700/60 rounded-lg p-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div id="signTypeIcon" class="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold text-xs">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <p id="detectedSignName" class="text-xs font-semibold text-white">Speed Limit 40</p>
+                <p class="text-[11px] text-slate-400">IRC Class ID: <span id="detectedClassId" class="text-cyan-400 font-mono-code">3</span></p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span id="stabilizationPill" class="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/40">
+                Stabilized (Smoothed)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scenario Quick-Switchers -->
+        <div>
+          <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2 block">
+            Select Road Scenario Preset:
+          </label>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+            <button onclick="loadScenario('sl20')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>20 Limit (15 km/h)</span>
+            </button>
+            <button onclick="loadScenario('sl20_viol')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span>20 Limit (35 km/h)</span>
+            </button>
+            <button onclick="loadScenario('sl40')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>40 Limit (40 km/h)</span>
+            </button>
+            <button onclick="loadScenario('stop_approach')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>Stop Ahead (25 km/h)</span>
+            </button>
+            <button onclick="loadScenario('stop_satisfied')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Stop Held (2.5s)</span>
+            </button>
+            <button onclick="loadScenario('school')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+              <span>School Ahead Zone</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Custom Photo Upload Dropzone -->
+        <div class="mt-1 pt-3 border-t border-slate-800/80">
+          <label class="cursor-pointer flex items-center justify-center gap-2 p-2.5 rounded-lg border border-dashed border-slate-700 hover:border-cyan-500 hover:bg-cyan-950/10 text-xs text-slate-400 hover:text-cyan-300 transition">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>Upload or Drop Custom Sign Photo</span>
+            <input type="file" id="imageUploader" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER & RIGHT COLUMN: SPEEDOMETER, ADAS CLUSTER & COMPLIANCE VERDICT (7 Cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-5">
+      
+      <!-- DIGITAL COCKPIT INSTRUMENT CLUSTER -->
+      <div class="glass-card rounded-2xl p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <div class="flex items-center gap-2">
+            <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Digital Instrument Cluster</span>
+          </div>
+          <span class="text-xs text-slate-400">Input Mode: <strong class="text-cyan-400 font-mono-code">SIMULATED SPEED</strong></span>
+        </div>
+
+        <!-- Gauge & Badges Center Display -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+          
+          <!-- Animated Speedometer Canvas (7 Cols) -->
+          <div class="sm:col-span-7 flex flex-col items-center justify-center relative">
+            <svg id="speedGauge" viewBox="0 0 240 150" class="w-56 sm:w-64">
+              <!-- Gauge Background Arc -->
+              <path d="M 30 130 A 90 90 0 0 1 210 130" fill="none" stroke="#1e293b" stroke-width="14" stroke-linecap="round"/>
+              <!-- Active Glow Speed Arc -->
+              <path id="speedArc" d="M 30 130 A 90 90 0 0 1 210 130" fill="none" stroke="url(#speedGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="283" stroke-dashoffset="283" class="transition-all duration-300"/>
+              <!-- Limit Tick Marker -->
+              <line id="limitMarker" x1="0" y1="0" x2="0" y2="0" stroke="#ef4444" stroke-width="4" stroke-linecap="round" class="transition-all duration-300"/>
+              
+              <defs>
+                <linearGradient id="speedGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#06b6d4" />
+                  <stop offset="60%" stop-color="#10b981" />
+                  <stop offset="100%" stop-color="#ef4444" />
+                </linearGradient>
+              </defs>
+            </svg>
+
+            <!-- Digital Readout inside gauge -->
+            <div class="absolute bottom-2 flex flex-col items-center">
+              <div class="flex items-baseline gap-1">
+                <span id="digitalSpeed" class="text-4xl sm:text-5xl font-hud font-bold text-white tracking-wider">35</span>
+                <span class="text-xs font-semibold text-slate-400">km/h</span>
+              </div>
+              <span id="speedStatusPill" class="text-[10px] font-mono-code uppercase tracking-wider text-slate-400">Cruising</span>
+            </div>
+          </div>
+
+          <!-- Active Speed Limit & Stop Timer Column (5 Cols) -->
+          <div class="sm:col-span-5 flex flex-col gap-3 items-center sm:items-start justify-center border-t sm:border-t-0 sm:border-l border-slate-800/80 pt-3 sm:pt-0 sm:pl-4">
+            
+            <!-- IRC Circular Speed Sign Badge -->
+            <div class="flex items-center gap-3">
+              <div id="speedLimitBadge" class="irc-sign text-2xl">
+                <span id="speedLimitValue">40</span>
+              </div>
+              <div>
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Active Limit</p>
+                <p id="limitPersistenceTag" class="text-xs text-emerald-400 font-medium">Enforced & Retained</p>
+              </div>
+            </div>
+
+            <!-- Stop Sign Stopwatch Progress -->
+            <div id="stopTimerContainer" class="w-full bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="text-slate-400 flex items-center gap-1">
+                  <i data-lucide="timer" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span>Stop Duration:</span>
+                </span>
+                <span id="stopTimerSeconds" class="font-mono-code font-bold text-white">0.0s / 2.0s</span>
+              </div>
+              <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                <div id="stopTimerBar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Interactive Speed Slider & Controls -->
+        <div class="pt-2 border-t border-slate-800/80 flex flex-col gap-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-400 font-medium">Simulated Throttle Control</span>
+            <div class="flex items-center gap-1.5">
+              <button onclick="adjustSpeed(-5)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono-code text-xs">-5</button>
+              <button onclick="setSpeed(0)" class="px-2.5 py-1 rounded bg-rose-950/70 hover:bg-rose-900 border border-rose-800 text-rose-300 font-semibold text-xs">STOP (0)</button>
+              <button onclick="adjustSpeed(+5)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono-code text-xs">+5</button>
+            </div>
+          </div>
+          <input type="range" id="speedSlider" min="0" max="140" value="35" step="1" oninput="onSpeedSliderChange(this.value)" class="w-full cursor-pointer">
+        </div>
+      </div>
+
+      <!-- COMPLIANCE DECISION ENGINE VERDICT CARD -->
+      <div id="verdictCard" class="glass-card rounded-2xl p-5 border transition-all duration-300 glow-green">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Rule-Based Compliance Engine</span>
+          </div>
+          <!-- Status Badge -->
+          <div id="statusBadge" class="px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+            COMPLIANT
+          </div>
+        </div>
+
+        <!-- Main Verdict Message -->
+        <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/80 mb-3">
+          <h2 id="verdictTitle" class="text-base sm:text-lg font-bold text-white mb-1 flex items-center gap-2">
+            Speed Compliant: 35 km/h (Limit: 40 km/h)
+          </h2>
+          <p id="verdictMessage" class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            Vehicle speed is within the applicable Indian Road Congress speed ceiling for this sector.
+          </p>
+        </div>
+
+        <!-- Context & Sensor Gap Explanation (Academic Audit) -->
+        <div class="rounded-xl bg-slate-950/60 p-3 border border-slate-800/70 text-xs flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-slate-400">
+            <span class="font-semibold flex items-center gap-1.5 text-slate-300">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>Context & Sensor Integrity:</span>
+            </span>
+            <span id="sensorStatusTag" class="text-[11px] font-mono-code text-emerald-400">Telemetry Verified</span>
+          </div>
+          <p id="contextAuditNote" class="text-[11px] text-slate-400">
+            Speed monitored against persisted IRC sign index. Rule engine evaluated active speed buffer.
+          </p>
+        </div>
+      </div>
+
+      <!-- LIVE TELEMETRY LOG / RECENT SIGNS -->
+      <div class="glass-card rounded-2xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Telemetry & Compliance Log</span>
+          </div>
+          <span class="text-[11px] text-slate-400">Live Rolling Session</span>
+        </div>
+
+        <div id="eventLogList" class="flex flex-col gap-2 max-h-36 overflow-y-auto pr-1 text-xs font-mono-code">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Sound / Voice State
+    let voiceEnabled = true;
+    let lastSpokenMessage = "";
+    let lastSpokenTime = 0;
+
+    // Simulation State
+    let currentSpeed = 35;
+    let activeLimit = 40;
+    let currentSignId = 3;
+    let currentSignName = "Speed Limit 40";
+    let currentConfidence = 0.94;
+    let stoppedSeconds = 0.0;
+    let stopTimerInterval = null;
+
+    // Preloaded scenario data with base64 / real photos
+    const SCENARIOS = {
+      sl20: {
+        signId: 2,
+        name: "Speed Limit 20",
+        limit: 20,
+        speed: 15,
+        conf: 0.96,
+        img: "Test Photos/20 speed limit.jpg",
+        status: "COMPLIANT",
+        title: "Speed Compliant: 15 km/h (Limit: 20 km/h)",
+        msg: "Vehicle is traveling at safe speeds within the active 20 km/h school/residential zone.",
+        note: "Limit enforced via IRC-67 standard. Speed verified compliant."
+      },
+      sl20_viol: {
+        signId: 2,
+        name: "Speed Limit 20",
+        limit: 20,
+        speed: 35,
+        conf: 0.94,
+        img: "Test Photos/20 speed limit.jpg",
+        status: "VIOLATION",
+        title: "VIOLATION: Speeding 35 km/h (Limit: 20 km/h)",
+        msg: "Driver exceeded active speed ceiling by 15 km/h! Audio warning issued.",
+        note: "Over-speed alert active. Brake application requested."
+      },
+      sl40: {
+        signId: 3,
+        name: "Speed Limit 40",
+        limit: 40,
+        speed: 40,
+        conf: 0.92,
+        img: "Test Photos/40 speed limit.jpg",
+        status: "COMPLIANT",
+        title: "Speed Compliant: 40 km/h (Limit: 40 km/h)",
+        msg: "Vehicle speed is exactly at the configured 40 km/h boundary limit.",
+        note: "Cruising at designated speed limit."
+      },
+      stop_approach: {
+        signId: 0,
+        name: "Stop",
+        limit: activeLimit,
+        speed: 25,
+        conf: 0.98,
+        img: "Test Photos/stop sign.jpeg",
+        status: "CHECK_REQUIRED",
+        title: "CHECK REQUIRED: Stop Sign Active",
+        msg: "Stop sign detected! Vehicle must come to a complete halt (speed <= 1 km/h for 2.0s).",
+        note: "Stop requirement pending: current speed 25 km/h > 0 km/h threshold."
+      },
+      stop_satisfied: {
+        signId: 0,
+        name: "Stop",
+        limit: activeLimit,
+        speed: 0,
+        stoppedSeconds: 2.5,
+        conf: 0.98,
+        img: "Test Photos/stop sign.jpeg",
+        status: "COMPLIANT",
+        title: "COMPLIANT: Stop Requirement Satisfied",
+        msg: "Vehicle came to a complete halt and held stationary for 2.5s (>= 2.0s required).",
+        note: "Stop duration verified via temporal tracking. Safe to proceed."
+      },
+      school: {
+        signId: 7,
+        name: "School Ahead",
+        limit: activeLimit,
+        speed: 28,
+        conf: 0.91,
+        img: "Test Photos/school ahead.png",
+        status: "WARNING",
+        title: "CAUTION: School Ahead Zone",
+        msg: "Caution: School zone. Drive attentively and watch for pedestrians & children.",
+        note: "Compliance not verified: Pedestrian presence and yielding require external pedestrian detection sensors."
+      }
+    };
+
+    function updateGauge(speed, limit) {
+      // 0 to 140 km/h mapped to 0 to 283 arc dashoffset
+      const maxSpeed = 140;
+      const totalDash = 283;
+      const progress = Math.min(speed / maxSpeed, 1.0);
+      const offset = totalDash - (progress * totalDash);
+      
+      const arc = document.getElementById("speedArc");
+      arc.style.strokeDashoffset = offset;
+
+      document.getElementById("digitalSpeed").innerText = Math.round(speed);
+      
+      // Update Speed Status Pill
+      const pill = document.getElementById("speedStatusPill");
+      if (speed <= 0) {
+        pill.innerText = "Stationary (0 km/h)";
+        pill.className = "text-[10px] font-mono-code uppercase tracking-wider text-rose-400 font-bold";
+      } else if (limit && speed > limit) {
+        pill.innerText = `Overspeed (+${Math.round(speed - limit)})`;
+        pill.className = "text-[10px] font-mono-code uppercase tracking-wider text-rose-500 font-bold";
+      } else {
+        pill.innerText = "Cruising Compliant";
+        pill.className = "text-[10px] font-mono-code uppercase tracking-wider text-emerald-400 font-semibold";
+      }
+    }
+
+    function renderUI() {
+      // 1. Gauge
+      updateGauge(currentSpeed, activeLimit);
+
+      // 2. Speed Limit Badge
+      const badgeVal = document.getElementById("speedLimitValue");
+      badgeVal.innerText = activeLimit ? activeLimit : "--";
+
+      // 3. Slider
+      document.getElementById("speedSlider").value = currentSpeed;
+
+      // 4. Decision Engine Verdict
+      const card = document.getElementById("verdictCard");
+      const badge = document.getElementById("statusBadge");
+      const title = document.getElementById("verdictTitle");
+      const msg = document.getElementById("verdictMessage");
+      const auditNote = document.getElementById("contextAuditNote");
+      const sensorTag = document.getElementById("sensorStatusTag");
+
+      let status = "COMPLIANT";
+      let titleText = "";
+      let msgText = "";
+      let auditText = "";
+
+      // Decision rules
+      if (currentSignId === 0) {
+        // Stop Sign
+        if (stoppedSeconds >= 2.0) {
+          status = "COMPLIANT";
+          titleText = `Stop Satisfied (${stoppedSeconds.toFixed(1)}s held)`;
+          msgText = `Vehicle successfully halted at the Stop line for ${stoppedSeconds.toFixed(1)}s (required: 2.0s).`;
+          auditText = "Temporal speed tracker verified vehicle velocity <= 1 km/h for mandated duration.";
+        } else if (currentSpeed <= 1.0) {
+          status = "CHECK_REQUIRED";
+          titleText = `Stop Check in Progress (${stoppedSeconds.toFixed(1)}s / 2.0s)`;
+          msgText = `Vehicle is stationary. Hold stop for full 2.0 seconds to satisfy compliance.`;
+          auditText = "Stop check active; waiting for required temporal duration threshold.";
+        } else {
+          status = "CHECK_REQUIRED";
+          titleText = `Stop Sign Active: Full Stop Required`;
+          msgText = `Vehicle is moving at ${Math.round(currentSpeed)} km/h. Deceleration to 0 km/h required.`;
+          auditText = "Stop event registered; vehicle motion currently in progress.";
+        }
+      } else if (activeLimit && currentSpeed > activeLimit) {
+        status = "VIOLATION";
+        titleText = `Speeding: ${Math.round(currentSpeed)} km/h (Limit: ${activeLimit} km/h)`;
+        msgText = `Speed exceeds active speed limit by ${Math.round(currentSpeed - activeLimit)} km/h. Reduce vehicle speed immediately.`;
+        auditText = "Direct violation: Speed telemetry exceeds active IRC sign ceiling.";
+      } else if ([1, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(currentSignId)) {
+        status = "WARNING";
+        titleText = `Caution: ${currentSignName}`;
+        msgText = `Advisory caution active for ${currentSignName}. Exercise attentiveness.`;
+        auditText = "Compliance not verified: Specific maneuver compliance requires additional steering/acoustic/GPS sensors.";
+      } else if (activeLimit) {
+        status = "COMPLIANT";
+        titleText = `Speed Compliant: ${Math.round(currentSpeed)} km/h (Limit: ${activeLimit} km/h)`;
+        msgText = `Vehicle speed is within the designated ${activeLimit} km/h zone limit.`;
+        auditText = "Speed telemetry within bounds. Active limit retained across frames.";
+      } else {
+        status = "NO_ACTION";
+        titleText = "No Active Restrictions";
+        msgText = "Cruising with no restrictive traffic sign or speed limit active.";
+        auditText = "Default state. Awaiting visual detection of regulatory signs.";
+      }
+
+      // Update Card Visuals & Badges
+      card.className = "glass-card rounded-2xl p-5 border transition-all duration-300";
+      badge.innerText = status;
+
+      if (status === "COMPLIANT") {
+        card.classList.add("glow-green");
+        badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+        sensorTag.innerText = "Telemetry Compliant";
+        sensorTag.className = "text-[11px] font-mono-code text-emerald-400";
+      } else if (status === "VIOLATION") {
+        card.classList.add("glow-red");
+        badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-rose-500/20 text-rose-400 border border-rose-500/50";
+        sensorTag.innerText = "Violation Detected";
+        sensorTag.className = "text-[11px] font-mono-code text-rose-400";
+        speakAlert(`Warning! Speed limit ${activeLimit}. Reduce speed!`);
+      } else if (status === "WARNING") {
+        card.classList.add("glow-amber");
+        badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40";
+        sensorTag.innerText = "External Sensor Gap";
+        sensorTag.className = "text-[11px] font-mono-code text-amber-400";
+        speakAlert(`Caution: ${currentSignName}`);
+      } else if (status === "CHECK_REQUIRED") {
+        card.classList.add("glow-cyan");
+        badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/40";
+        sensorTag.innerText = "Stop Check Active";
+        sensorTag.className = "text-[11px] font-mono-code text-cyan-400";
+        if (currentSpeed > 5) speakAlert("Stop sign ahead!");
+      }
+
+      title.innerText = titleText;
+      msg.innerText = msgText;
+      auditNote.innerText = auditText;
+
+      // Stop Timer UI Bar
+      const timerBar = document.getElementById("stopTimerBar");
+      const timerSec = document.getElementById("stopTimerSeconds");
+      if (currentSignId === 0) {
+        document.getElementById("stopTimerContainer").style.display = "block";
+        const pct = Math.min((stoppedSeconds / 2.0) * 100, 100);
+        timerBar.style.width = `${pct}%`;
+        timerSec.innerText = `${stoppedSeconds.toFixed(1)}s / 2.0s`;
+      } else {
+        document.getElementById("stopTimerContainer").style.display = "none";
+      }
+
+      lucide.createIcons();
+    }
+
+    function onSpeedSliderChange(val) {
+      currentSpeed = parseFloat(val);
+      if (currentSpeed <= 1.0 && currentSignId === 0) {
+        startStopTimer();
+      } else {
+        stopStopTimer();
+      }
+      renderUI();
+      logEvent(`Speed changed to ${Math.round(currentSpeed)} km/h`);
+    }
+
+    function setSpeed(val) {
+      currentSpeed = val;
+      if (currentSpeed <= 1.0 && currentSignId === 0) {
+        startStopTimer();
+      } else {
+        stopStopTimer();
+      }
+      renderUI();
+      logEvent(`Speed set to ${val} km/h`);
+    }
+
+    function adjustSpeed(delta) {
+      currentSpeed = Math.max(0, Math.min(140, currentSpeed + delta));
+      if (currentSpeed <= 1.0 && currentSignId === 0) {
+        startStopTimer();
+      } else {
+        stopStopTimer();
+      }
+      renderUI();
+    }
+
+    function startStopTimer() {
+      if (stopTimerInterval) return;
+      stopTimerInterval = setInterval(() => {
+        if (currentSpeed <= 1.0 && currentSignId === 0) {
+          stoppedSeconds += 0.2;
+          if (stoppedSeconds >= 2.0) {
+            renderUI();
+          } else {
+            renderUI();
+          }
+        }
+      }, 200);
+    }
+
+    function stopStopTimer() {
+      if (stopTimerInterval) {
+        clearInterval(stopTimerInterval);
+        stopTimerInterval = null;
+      }
+      if (currentSpeed > 1.0 && stoppedSeconds < 2.0) {
+        stoppedSeconds = 0.0;
+      }
+    }
+
+    function loadScenario(key) {
+      const s = SCENARIOS[key];
+      if (!s) return;
+
+      currentSignId = s.signId;
+      currentSignName = s.name;
+      if (s.limit) activeLimit = s.limit;
+      currentSpeed = s.speed;
+      currentConfidence = s.conf;
+      stoppedSeconds = s.stoppedSeconds || 0.0;
+
+      // Update vision feed
+      document.getElementById("feedImage").src = s.img;
+      document.getElementById("detectedSignName").innerText = s.name;
+      document.getElementById("detectedClassId").innerText = s.signId;
+      document.getElementById("visionConfidence").innerText = `Confidence: ${(s.conf * 100).toFixed(0)}%`;
+      document.getElementById("bboxLabel").innerText = `${s.name} [${(s.conf * 100).toFixed(0)}%]`;
+
+      // Set bbox position mock
+      const bbox = document.getElementById("bboxOverlay");
+      bbox.style.top = "18%";
+      bbox.style.left = "28%";
+      bbox.style.width = "44%";
+      bbox.style.height = "56%";
+
+      renderUI();
+      logEvent(`Loaded scenario: ${s.name} @ ${s.speed} km/h -> [${s.status}]`);
+    }
+
+    function resetContext() {
+      activeLimit = null;
+      currentSignId = null;
+      currentSignName = "None";
+      stoppedSeconds = 0.0;
+      stopStopTimer();
+      renderUI();
+      logEvent("Context state and active speed limit reset to default.");
+    }
+
+    function toggleAudio() {
+      voiceEnabled = !voiceEnabled;
+      const text = document.getElementById("voiceText");
+      const icon = document.getElementById("voiceIcon");
+      if (voiceEnabled) {
+        text.innerText = "Audio Voice: ON";
+        icon.classList.remove("text-slate-500");
+        icon.classList.add("text-cyan-400");
+      } else {
+        text.innerText = "Audio Voice: OFF";
+        icon.classList.remove("text-cyan-400");
+        icon.classList.add("text-slate-500");
+      }
+    }
+
+    function speakAlert(text) {
+      if (!voiceEnabled || !('speechSynthesis' in window)) return;
+      const now = Date.now();
+      if (text === lastSpokenMessage && (now - lastSpokenTime) < 4000) return;
+      
+      lastSpokenMessage = text;
+      lastSpokenTime = now;
+      
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1.05;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+    }
+
+    function logEvent(msg) {
+      const list = document.getElementById("eventLogList");
+      const item = document.createElement("div");
+      const timeStr = new Date().toLocaleTimeString();
+      item.className = "flex items-center justify-between p-1.5 rounded bg-slate-900/60 border border-slate-800/60 text-slate-300";
+      item.innerHTML = `<span class="text-cyan-400">[${timeStr}]</span> <span>${msg}</span>`;
+      list.prepend(item);
+
+      while (list.children.length > 8) {
+        list.removeChild(list.lastChild);
+      }
+    }
+
+    function handleImageUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        document.getElementById("feedImage").src = evt.target.result;
+        logEvent(`Custom image uploaded: ${file.name}`);
+        // Trigger generic detection mock or backend call
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Initialize on load
+    window.onload = function() {
+      loadScenario("sl40");
+    };
+  </script>
+</body>
+</html>
