@@ -121,7 +121,7 @@ COLOR_PALETTE = [
 ]
 
 class TSRDetector:
-    def __init__(self, weights_path="models/best.pt", conf_thresh=0.35, iou_thresh=0.45):
+    def __init__(self, weights_path="models/best.pt", conf_thresh=0.25, iou_thresh=0.45):
         self.weights_path = weights_path
         self.conf_thresh = conf_thresh
         self.iou_thresh = iou_thresh
@@ -141,7 +141,7 @@ class TSRDetector:
             print("[INFO] Operating in simulated/mock mode for pipeline verification until Colab training finishes.")
             self.mock_mode = True
 
-    def detect(self, frame):
+    def detect(self, frame, conf=None, augment=False):
         """
         Runs detection on an OpenCV BGR frame.
         Returns:
@@ -156,8 +156,9 @@ class TSRDetector:
             # Simulated detection for pipeline testing if weights aren't trained yet
             return annotated, detections
 
-        # Run Ultralytics inference
-        results = self.model(frame, conf=self.conf_thresh, iou=self.iou_thresh, verbose=False)[0]
+        active_conf = conf if conf is not None else self.conf_thresh
+        # Run Ultralytics inference (optional multi-scale test-time augmentation, class-agnostic NMS)
+        results = self.model(frame, conf=active_conf, iou=self.iou_thresh, augment=augment, agnostic_nms=True, verbose=False)[0]
 
         for box in results.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
@@ -177,9 +178,11 @@ class TSRDetector:
             if any(raw_label.startswith(pfx) for pfx in ["*", "=", "Roboflow", "The ", "For ", "To ", "Traffic-sign are", "traffic sign -", "visit ", "annotate"]):
                 continue
 
-            # Format label cleanly using comprehensive SIGN_NAME_MAP
+            # Format label cleanly: support direct 15-class names, sign code mapping, and clean text
             clean_key = raw_label.strip()
-            if clean_key in SIGN_NAME_MAP:
+            if clean_key in CLASSES:
+                label = clean_key
+            elif clean_key in SIGN_NAME_MAP:
                 label = SIGN_NAME_MAP[clean_key]
             elif clean_key.isdigit() and str(int(clean_key)) in SIGN_NAME_MAP:
                 label = SIGN_NAME_MAP[str(int(clean_key))]
@@ -213,6 +216,7 @@ def main():
     parser.add_argument("--source", type=str, default="dataset/test/images/syn_tsr_test_0001.jpg", help="Camera index, image path, or video path")
     parser.add_argument("--weights", type=str, default="models/best.pt", help="Path to trained weights")
     parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
+    parser.add_argument("--augment", action="store_true", help="Enable multi-scale test-time augmentation (TTA) for difficult signs")
     parser.add_argument("--output", type=str, default="results/detected_output.jpg", help="Output path for annotated image")
     args = parser.parse_args()
 
@@ -225,7 +229,7 @@ def main():
             print(f"[ERROR] Could not read image at: {args.source}")
             return
         
-        annotated, detections = detector.detect(frame)
+        annotated, detections = detector.detect(frame, augment=args.augment)
         print(f"[RESULT] Detected {len(detections)} traffic sign(s):")
         for i, det in enumerate(detections, 1):
             print(f"  {i}. {det['label']} (Confidence: {det['conf']:.2f}, Box: {det['bbox']})")

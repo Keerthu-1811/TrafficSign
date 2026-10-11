@@ -1,0 +1,21 @@
+path: .
+train: images/train
+val: images/val
+test: images/test
+nc: 15
+names:
+  0: Stop
+  1: No Entry
+  2: Speed Limit 20
+  3: Speed Limit 40
+  4: Speed Limit 60
+  5: Speed Limit 80
+  6: Give Way
+  7: School Ahead
+  8: Pedestrian Crossing
+  9: Left Turn
+  10: Right Turn
+  11: U-Turn
+  12: Horn Prohibited
+  13: Parking
+  14: Dangerous Curve
