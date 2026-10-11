@@ -152,20 +152,57 @@ class TestDecisionEngine(unittest.TestCase):
         self.assertEqual(res_done["status"], ComplianceStatus.COMPLIANT)
 
     # -------------------------------------------------------------
-    # 4. Caution and Advisory Signs
+    # 4. Multi-Modal Context Rules: Horn, Pedestrian, Turn Signs
     # -------------------------------------------------------------
-    def test_pedestrian_crossing_warning(self):
-        """Pedestrian crossing -> WARNING, compliance marked unverified."""
-        res = self.engine.check(sign_id=8, speed_kmh=35.0, confidence=0.91)
-        self.assertEqual(res["status"], ComplianceStatus.WARNING)
-        self.assertIn("Pedestrian", res["message"])
-        self.assertIn("Compliance not verified", res["context_note"])
+    def test_horn_prohibited_violation_when_honked(self):
+        """Horn Prohibited (ID 12) + horn active -> VIOLATION"""
+        res = self.engine.check(sign_id=12, speed_kmh=30.0, confidence=0.90, horn_active=True)
+        self.assertEqual(res["status"], ComplianceStatus.VIOLATION)
+        self.assertIn("Illegal horn", res["message"])
 
-    def test_horn_prohibited_warning(self):
-        """Horn Prohibited -> WARNING with acoustic context requirement noted."""
-        res = self.engine.check(sign_id=12, speed_kmh=40.0, confidence=0.88)
-        self.assertEqual(res["status"], ComplianceStatus.WARNING)
-        self.assertIn("Horn", res["message"])
+    def test_horn_prohibited_compliant_when_silent(self):
+        """Horn Prohibited (ID 12) + horn silent -> COMPLIANT"""
+        res = self.engine.check(sign_id=12, speed_kmh=30.0, confidence=0.90, horn_active=False)
+        self.assertEqual(res["status"], ComplianceStatus.COMPLIANT)
+        self.assertIn("Horn prohibition compliant", res["message"])
+
+    def test_pedestrian_crossing_yield_compliant(self):
+        """Pedestrian Crossing (ID 8) + pedestrian present + speed <= 5 km/h -> COMPLIANT"""
+        res = self.engine.check(sign_id=8, speed_kmh=0.0, confidence=0.92, pedestrian_present=True)
+        self.assertEqual(res["status"], ComplianceStatus.COMPLIANT)
+        self.assertIn("Yielded to pedestrian", res["message"])
+
+    def test_pedestrian_crossing_failure_to_yield_violation(self):
+        """Pedestrian Crossing (ID 8) + pedestrian present + speed > 5 km/h -> VIOLATION"""
+        res = self.engine.check(sign_id=8, speed_kmh=35.0, confidence=0.92, pedestrian_present=True)
+        self.assertEqual(res["status"], ComplianceStatus.VIOLATION)
+        self.assertIn("Failure to yield", res["message"])
+
+    def test_pedestrian_crossing_clear_roadway(self):
+        """Pedestrian Crossing (ID 8) + no pedestrian -> COMPLIANT"""
+        res = self.engine.check(sign_id=8, speed_kmh=30.0, confidence=0.92, pedestrian_present=False)
+        self.assertEqual(res["status"], ComplianceStatus.COMPLIANT)
+        self.assertIn("clear", res["message"])
+
+    def test_left_turn_compliance(self):
+        """Left Turn (ID 9): heading <= -30° -> COMPLIANT; heading 0° -> CHECK_REQUIRED"""
+        # Heading 0° (straight)
+        res1 = self.engine.check(sign_id=9, speed_kmh=25.0, confidence=0.90, heading_deg=0.0)
+        self.assertEqual(res1["status"], ComplianceStatus.CHECK_REQUIRED)
+
+        # Heading -45° (turned left)
+        res2 = self.engine.check(sign_id=9, speed_kmh=20.0, confidence=0.90, heading_deg=-45.0)
+        self.assertEqual(res2["status"], ComplianceStatus.COMPLIANT)
+
+    def test_right_turn_compliance(self):
+        """Right Turn (ID 10): heading >= 30° -> COMPLIANT"""
+        res = self.engine.check(sign_id=10, speed_kmh=20.0, confidence=0.90, heading_deg=60.0)
+        self.assertEqual(res["status"], ComplianceStatus.COMPLIANT)
+
+    def test_u_turn_compliance(self):
+        """U-Turn (ID 11): heading 180° -> COMPLIANT"""
+        res = self.engine.check(sign_id=11, speed_kmh=15.0, confidence=0.90, heading_deg=180.0)
+        self.assertEqual(res["status"], ComplianceStatus.COMPLIANT)
 
     def test_caution_sign_with_active_speed_violation(self):
         """In a 20 km/h zone, School Ahead at 45 km/h -> VIOLATION."""

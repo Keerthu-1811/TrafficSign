@@ -4,6 +4,9 @@ Maintains state across video frames:
 - Active speed limit
 - Current vehicle speed (simulated or sensor-based)
 - Stop sign event tracking and stopped duration
+- Vehicle heading & steering angle (Left Turn, Right Turn, U-Turn)
+- Acoustic horn state (Silence Zone / Horn Prohibited)
+- Pedestrian crossing presence & yielding status
 - History window for speed and timing
 """
 
@@ -20,11 +23,20 @@ SPEED_LIMIT_MAP = {
 STOP_SIGN_ID = 0
 STOP_SPEED_THRESHOLD_KMH = 1.0  # Speeds <= 1.0 km/h are considered stopped
 
+TURN_SIGN_IDS = {
+    9: "Left Turn",
+    10: "Right Turn",
+    11: "U-Turn",
+}
+
+HORN_PROHIBITED_ID = 12
+PEDESTRIAN_CROSSING_ID = 8
+
 
 class DrivingContextManager:
     """
     Tracks dynamic driving context over time, including speed limits,
-    vehicle speed, stop duration, and sign presence.
+    vehicle speed, stop duration, heading angle, horn state, and pedestrian presence.
     """
 
     def __init__(
@@ -39,6 +51,15 @@ class DrivingContextManager:
         self.is_simulated_speed: bool = is_simulated_speed
         self.stop_duration_required: float = stop_duration_required
         self.stop_event_timeout: float = stop_event_timeout
+
+        # Vehicle Heading / Steering Angle (-180 to +180 deg; 0 = straight)
+        self.current_heading_deg: float = 0.0
+
+        # Horn Activation State (Silence Zone)
+        self.horn_active: bool = False
+
+        # Pedestrian Crossing Presence
+        self.pedestrian_present: bool = False
 
         # Stop sign state tracking
         self.stop_sign_active: bool = False
@@ -59,9 +80,24 @@ class DrivingContextManager:
         self._record_speed(now, self.current_speed_kmh)
         self._update_stop_tracking(now)
 
+    def set_heading(self, heading_deg: float):
+        """Updates the current vehicle steering / heading angle in degrees."""
+        # Normalize to [-180, 180]
+        deg = float(heading_deg) % 360
+        if deg > 180:
+            deg -= 360
+        self.current_heading_deg = deg
+
+    def set_horn(self, active: bool):
+        """Sets the current horn activation status (pressed/released)."""
+        self.horn_active = bool(active)
+
+    def set_pedestrian_present(self, present: bool):
+        """Sets whether a pedestrian is currently on or entering the crossing."""
+        self.pedestrian_present = bool(present)
+
     def _record_speed(self, timestamp: float, speed_kmh: float):
         self.speed_history.append((timestamp, speed_kmh))
-        # Prune old speed history beyond max age
         cutoff = timestamp - self.history_max_age
         while self.speed_history and self.speed_history[0][0] < cutoff:
             self.speed_history.pop(0)
@@ -97,7 +133,6 @@ class DrivingContextManager:
         # Check if the stop sign event timed out
         if self.stop_sign_last_seen_time is not None:
             if (now - self.stop_sign_last_seen_time) > self.stop_event_timeout and not self.stop_satisfied:
-                # Sign disappeared and timeout elapsed without satisfactory stop
                 self.stop_sign_active = False
                 self.stopped_start_time = None
                 return
@@ -113,11 +148,9 @@ class DrivingContextManager:
         else:
             # Vehicle is moving
             if self.stop_satisfied:
-                # Vehicle completed the required stop and resumed driving
                 self.stop_sign_active = False
                 self.stopped_start_time = None
             else:
-                # Stopped state broken before required duration reached
                 self.stopped_start_time = None
 
     def reset_stop_state(self):
@@ -134,8 +167,11 @@ class DrivingContextManager:
         self.active_speed_limit = None
 
     def reset(self):
-        """Full reset of context state."""
+        """Full reset of all context state."""
         self.clear_active_limit()
         self.reset_stop_state()
         self.current_speed_kmh = 0.0
+        self.current_heading_deg = 0.0
+        self.horn_active = False
+        self.pedestrian_present = False
         self.speed_history.clear()

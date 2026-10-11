@@ -1,12 +1,23 @@
 """
 Rule-Based Driver Compliance Decision Engine for Indian Traffic Signs.
-Evaluates visual traffic sign detections against driving context (speed, stop duration)
-and produces structured compliance verdicts.
+Evaluates visual traffic sign detections against multi-modal driving context:
+- Speed comparison against active limit
+- Stop sign duration tracking
+- Turn & steering maneuver compliance (Left Turn, Right Turn, U-Turn)
+- Acoustic silence zone enforcement (Horn Prohibited)
+- Pedestrian crossing right-of-way yielding
 """
 
 import time
 from typing import Optional, Dict, Any
-from context_manager import DrivingContextManager, SPEED_LIMIT_MAP, STOP_SIGN_ID
+from context_manager import (
+    DrivingContextManager,
+    SPEED_LIMIT_MAP,
+    STOP_SIGN_ID,
+    TURN_SIGN_IDS,
+    HORN_PROHIBITED_ID,
+    PEDESTRIAN_CROSSING_ID,
+)
 
 # Complete 15-class mapping aligned with YOLOv8 model
 SIGN_CLASSES = [
@@ -27,16 +38,11 @@ SIGN_CLASSES = [
     "Dangerous Curve",      # 14
 ]
 
-# Sign IDs requiring caution warnings with context notes
-CAUTION_SIGN_DESCRIPTIONS = {
+# Remaining caution signs without direct dedicated sensors yet
+ADVISORY_SIGN_DESCRIPTIONS = {
     1: ("No Entry", "Do not enter this roadway. Vehicle path/heading verification requires GPS/map context."),
     6: ("Give Way", "Yield right-of-way to oncoming traffic. Yielding compliance requires surrounding vehicle context."),
     7: ("School Ahead", "Caution: School zone. Drive attentively and watch for children."),
-    8: ("Pedestrian Crossing", "Caution: Pedestrian crossing. Yield to pedestrians; verification requires pedestrian detection."),
-    9: ("Left Turn", "Mandatory / impending Left Turn. Trajectory compliance requires steering/heading sensor."),
-    10: ("Right Turn", "Mandatory / impending Right Turn. Trajectory compliance requires steering/heading sensor."),
-    11: ("U-Turn", "U-Turn advisory. Maneuver compliance requires vehicle trajectory context."),
-    12: ("Horn Prohibited", "Silence zone. Horn prohibition compliance requires acoustic/CAN-bus horn sensor."),
     13: ("Parking", "Designated parking area. Parking compliance requires stationary location context."),
     14: ("Dangerous Curve", "Caution: Sharp curve ahead. Reduce speed and stay in lane."),
 }
@@ -54,7 +60,7 @@ class ComplianceStatus:
 
 class ComplianceDecisionEngine:
     """
-    Evaluates driver compliance against Indian traffic signs using dynamic context.
+    Evaluates driver compliance against Indian traffic signs using multi-modal driving context.
     """
 
     def __init__(
@@ -79,34 +85,37 @@ class ComplianceDecisionEngine:
         speed_kmh: Optional[float] = None,
         confidence: float = 0.0,
         stopped_seconds: Optional[float] = None,
+        heading_deg: Optional[float] = None,
+        horn_active: Optional[bool] = None,
+        pedestrian_present: Optional[bool] = None,
         timestamp: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
-        Main evaluation entry point.
-        Args:
-            sign_id: Detected class index (0-14) or None if no sign detected in current frame.
-            speed_kmh: Current vehicle speed in km/h. If None, uses context manager speed.
-            confidence: Model classification confidence (0.0 to 1.0).
-            stopped_seconds: Explicit stop duration in seconds, if supplied by external tracker.
-            timestamp: Processing timestamp (defaults to current time).
-        Returns:
-            Dictionary with structured compliance decision.
+        Main multi-modal compliance evaluation entry point.
         """
         now = time.time() if timestamp is None else timestamp
 
-        # Update speed in context manager if supplied
+        # Update telemetry in context manager
         if speed_kmh is not None:
             self.context.set_speed(speed_kmh, timestamp=now)
+        if heading_deg is not None:
+            self.context.set_heading(heading_deg)
+        if horn_active is not None:
+            self.context.set_horn(horn_active)
+        if pedestrian_present is not None:
+            self.context.set_pedestrian_present(pedestrian_present)
 
         current_speed = self.context.current_speed_kmh
         active_limit = self.context.active_speed_limit
         is_simulated = self.context.is_simulated_speed
+        current_heading = self.context.current_heading_deg
+        is_horn_active = self.context.horn_active
+        is_ped_present = self.context.pedestrian_present
 
         sign_name = SIGN_CLASSES[sign_id] if (sign_id is not None and 0 <= sign_id < len(SIGN_CLASSES)) else None
 
-        # 1. Check Prediction Confidence if a sign is supplied
+        # 1. Prediction Confidence Gate
         if sign_id is not None and confidence < self.min_confidence:
-            # Low confidence sign: do not activate new rules or update speed limits
             return self._build_result(
                 status=ComplianceStatus.UNCERTAIN,
                 message=f"Uncertain detection for sign ID {sign_id} (confidence: {confidence:.2f} < {self.min_confidence:.2f})",
@@ -119,11 +128,11 @@ class ComplianceDecisionEngine:
                 timestamp=now,
             )
 
-        # 2. If confident speed limit sign detected, update active limit
+        # 2. Speed Limit Signs (2, 3, 4, 5)
         if sign_id is not None and sign_id in SPEED_LIMIT_MAP and confidence >= self.min_confidence:
             active_limit = self.context.update_speed_limit(sign_id)
 
-        # 3. Handle Stop Sign (Class 0)
+        # 3. Stop Sign (Class 0)
         if sign_id == STOP_SIGN_ID and confidence >= self.min_confidence:
             self.context.register_stop_sign_detection(timestamp=now)
 
@@ -131,7 +140,6 @@ class ComplianceDecisionEngine:
             stop_duration = stopped_seconds if stopped_seconds is not None else self.context.total_stopped_duration
 
             if stopped_seconds is None and not self.context.speed_history and current_speed > 0:
-                # No speed history and no external duration data provided
                 return self._build_result(
                     status=ComplianceStatus.CANNOT_VERIFY,
                     message="Stop sign detected; stop compliance cannot be verified without temporal speed tracking.",
@@ -156,6 +164,7 @@ class ComplianceDecisionEngine:
                     confidence=confidence,
                     is_speed_simulated=is_simulated,
                     timestamp=now,
+                    context_note="Temporal speed tracker verified vehicle velocity <= 1 km/h for mandated duration.",
                 )
             elif current_speed <= 1.0 and stop_duration > 0.0:
                 return self._build_result(
@@ -168,6 +177,7 @@ class ComplianceDecisionEngine:
                     confidence=confidence,
                     is_speed_simulated=is_simulated,
                     timestamp=now,
+                    context_note="Vehicle halted; holding stop duration to reach required threshold.",
                 )
             else:
                 return self._build_result(
@@ -180,12 +190,198 @@ class ComplianceDecisionEngine:
                     confidence=confidence,
                     is_speed_simulated=is_simulated,
                     timestamp=now,
+                    context_note="Stop event registered; vehicle deceleration required.",
                 )
 
-        # 4. Handle Caution / Advisory Signs (1, 6-14)
-        if sign_id is not None and sign_id in CAUTION_SIGN_DESCRIPTIONS and confidence >= self.min_confidence:
-            name, desc = CAUTION_SIGN_DESCRIPTIONS[sign_id]
-            # Speed check still applies if limit is active
+        # 4. Horn Prohibited / Silence Zone (Class 12)
+        if sign_id == HORN_PROHIBITED_ID and confidence >= self.min_confidence:
+            if is_horn_active:
+                return self._build_result(
+                    status=ComplianceStatus.VIOLATION,
+                    message="VIOLATION: Illegal horn activation in Silence Zone!",
+                    sign_id=12,
+                    sign_name="Horn Prohibited",
+                    speed_kmh=current_speed,
+                    active_speed_limit=active_limit,
+                    confidence=confidence,
+                    is_speed_simulated=is_simulated,
+                    timestamp=now,
+                    context_note="Acoustic sensor detected horn honk inside restricted silence zone.",
+                )
+            else:
+                if active_limit is not None and current_speed > active_limit:
+                    return self._build_result(
+                        status=ComplianceStatus.VIOLATION,
+                        message=f"Speeding: {current_speed:.0f} km/h (limit: {active_limit} km/h) in Silence Zone.",
+                        sign_id=12,
+                        sign_name="Horn Prohibited",
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Horn quiet, but speed limit exceeded.",
+                    )
+                return self._build_result(
+                    status=ComplianceStatus.COMPLIANT,
+                    message="Silence Zone: Horn prohibition compliant (no horn sounded).",
+                    sign_id=12,
+                    sign_name="Horn Prohibited",
+                    speed_kmh=current_speed,
+                    active_speed_limit=active_limit,
+                    confidence=confidence,
+                    is_speed_simulated=is_simulated,
+                    timestamp=now,
+                    context_note="Horn sensor quiet. Silence zone compliance maintained.",
+                )
+
+        # 5. Pedestrian Crossing Yielding (Class 8)
+        if sign_id == PEDESTRIAN_CROSSING_ID and confidence >= self.min_confidence:
+            if is_ped_present:
+                if current_speed <= 5.0:
+                    return self._build_result(
+                        status=ComplianceStatus.COMPLIANT,
+                        message=f"Yielded to pedestrian: vehicle decelerated to {current_speed:.0f} km/h.",
+                        sign_id=8,
+                        sign_name="Pedestrian Crossing",
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Zebra crossing occupied; driver decelerated/halted to yield right-of-way.",
+                    )
+                else:
+                    return self._build_result(
+                        status=ComplianceStatus.VIOLATION,
+                        message=f"VIOLATION: Failure to yield to pedestrian at crossing! (Speed: {current_speed:.0f} km/h).",
+                        sign_id=8,
+                        sign_name="Pedestrian Crossing",
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Pedestrian present on crossing. Vehicle failed to decelerate/yield.",
+                    )
+            else:
+                if active_limit is not None and current_speed > active_limit:
+                    return self._build_result(
+                        status=ComplianceStatus.VIOLATION,
+                        message=f"Speeding: {current_speed:.0f} km/h (limit: {active_limit} km/h) at crossing.",
+                        sign_id=8,
+                        sign_name="Pedestrian Crossing",
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Crossing clear of pedestrians, but vehicle exceeded speed limit.",
+                    )
+                return self._build_result(
+                    status=ComplianceStatus.COMPLIANT,
+                    message="Pedestrian Crossing clear: roadway unobstructed, speed compliant.",
+                    sign_id=8,
+                    sign_name="Pedestrian Crossing",
+                    speed_kmh=current_speed,
+                    active_speed_limit=active_limit,
+                    confidence=confidence,
+                    is_speed_simulated=is_simulated,
+                    timestamp=now,
+                    context_note="No pedestrians detected on zebra crossing. Proceeding safely.",
+                )
+
+        # 6. Turn & Heading Compliance (Classes 9, 10, 11)
+        if sign_id in TURN_SIGN_IDS and confidence >= self.min_confidence:
+            turn_name = TURN_SIGN_IDS[sign_id]
+
+            if sign_id == 9:  # Left Turn
+                if current_heading <= -30.0:
+                    return self._build_result(
+                        status=ComplianceStatus.COMPLIANT,
+                        message=f"Left turn executed successfully (heading: {current_heading:.0f}°).",
+                        sign_id=9,
+                        sign_name=turn_name,
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Vehicle steering trajectory matched mandated left turn.",
+                    )
+                else:
+                    return self._build_result(
+                        status=ComplianceStatus.CHECK_REQUIRED,
+                        message=f"Mandatory Left Turn active: heading {current_heading:.0f}°. Left steer required.",
+                        sign_id=9,
+                        sign_name=turn_name,
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Vehicle steering currently straight. Left turn maneuver pending.",
+                    )
+
+            elif sign_id == 10:  # Right Turn
+                if current_heading >= 30.0:
+                    return self._build_result(
+                        status=ComplianceStatus.COMPLIANT,
+                        message=f"Right turn executed successfully (heading: {current_heading:.0f}°).",
+                        sign_id=10,
+                        sign_name=turn_name,
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Vehicle steering trajectory matched mandated right turn.",
+                    )
+                else:
+                    return self._build_result(
+                        status=ComplianceStatus.CHECK_REQUIRED,
+                        message=f"Mandatory Right Turn active: heading {current_heading:.0f}°. Right steer required.",
+                        sign_id=10,
+                        sign_name=turn_name,
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Vehicle steering currently straight. Right turn maneuver pending.",
+                    )
+
+            elif sign_id == 11:  # U-Turn
+                if abs(current_heading) >= 140.0:
+                    return self._build_result(
+                        status=ComplianceStatus.COMPLIANT,
+                        message=f"U-Turn completed successfully (heading: {current_heading:.0f}°).",
+                        sign_id=11,
+                        sign_name=turn_name,
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="Vehicle completed 180° heading reversal.",
+                    )
+                else:
+                    return self._build_result(
+                        status=ComplianceStatus.CHECK_REQUIRED,
+                        message=f"U-Turn active: heading {current_heading:.0f}°. 180° reversal pending.",
+                        sign_id=11,
+                        sign_name=turn_name,
+                        speed_kmh=current_speed,
+                        active_speed_limit=active_limit,
+                        confidence=confidence,
+                        is_speed_simulated=is_simulated,
+                        timestamp=now,
+                        context_note="U-Turn trajectory reversal in progress.",
+                    )
+
+        # 7. Remaining Advisory Signs (1, 6, 7, 13, 14)
+        if sign_id is not None and sign_id in ADVISORY_SIGN_DESCRIPTIONS and confidence >= self.min_confidence:
+            name, desc = ADVISORY_SIGN_DESCRIPTIONS[sign_id]
             if active_limit is not None and current_speed > active_limit:
                 return self._build_result(
                     status=ComplianceStatus.VIOLATION,
@@ -213,7 +409,7 @@ class ComplianceDecisionEngine:
                 context_note="Compliance not verified: context/sensor unavailable",
             )
 
-        # 5. Speed Limit Compliance Check (active limit persists even when no sign is in frame)
+        # 8. Speed Limit Compliance Check (active limit persists across frames)
         if active_limit is not None:
             if current_speed > active_limit:
                 return self._build_result(
@@ -240,7 +436,7 @@ class ComplianceDecisionEngine:
                     timestamp=now,
                 )
 
-        # 6. Default / No active rules
+        # 9. Default / No active rules
         return self._build_result(
             status=ComplianceStatus.NO_ACTION,
             message="No active traffic rules or speed limits configured.",
@@ -267,7 +463,6 @@ class ComplianceDecisionEngine:
         context_note: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Constructs standardized result dictionary with alert suppression logic."""
-        # Alert cooldown handling
         should_alert = False
         is_alertable = status in (ComplianceStatus.VIOLATION, ComplianceStatus.WARNING, ComplianceStatus.CHECK_REQUIRED)
 
@@ -287,6 +482,9 @@ class ComplianceDecisionEngine:
             "active_speed_limit": active_speed_limit,
             "confidence": round(confidence, 3),
             "is_speed_simulated": is_speed_simulated,
+            "heading_deg": round(self.context.current_heading_deg, 1),
+            "horn_active": self.context.horn_active,
+            "pedestrian_present": self.context.pedestrian_present,
             "should_alert": should_alert,
         }
         if context_note:

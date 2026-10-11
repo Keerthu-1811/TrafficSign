@@ -97,9 +97,9 @@
       <div>
         <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
           <span>AI TSR & Driver Compliance</span>
-          <span class="px-2 py-0.5 text-xs font-hud rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">ADAS Cockpit</span>
+          <span class="px-2 py-0.5 text-xs font-hud rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">ADAS Cockpit v2.0</span>
         </h1>
-        <p class="text-xs text-slate-400">Context-Aware Indian Road Compliance & Perception Engine</p>
+        <p class="text-xs text-slate-400">Multi-Modal Indian Road Compliance Engine (Speed, Stop, Turn, Horn, Pedestrian)</p>
       </div>
     </div>
 
@@ -107,8 +107,8 @@
     <div class="flex items-center gap-3">
       <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-400">Model:</span>
-        <span class="font-semibold text-emerald-400 font-mono-code">YOLOv8n (15 Classes)</span>
+        <span class="text-slate-400">Perception:</span>
+        <span class="font-semibold text-emerald-400 font-mono-code">YOLOv8n Active</span>
       </div>
 
       <button id="voiceToggleBtn" onclick="toggleAudio()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
@@ -144,7 +144,7 @@
         <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center group">
           <img id="feedImage" src="" alt="Traffic Sign Feed" class="w-full h-full object-cover">
           
-          <!-- HUD HUD Corner Accents -->
+          <!-- HUD Corner Accents -->
           <div class="absolute top-2 left-2 border-t-2 border-l-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
           <div class="absolute top-2 right-2 border-t-2 border-r-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
           <div class="absolute bottom-2 left-2 border-b-2 border-l-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
@@ -179,7 +179,7 @@
         <!-- Scenario Quick-Switchers -->
         <div>
           <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2 block">
-            Select Road Scenario Preset:
+            Select Road Scenario Presets:
           </label>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             <button onclick="loadScenario('sl20')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
@@ -190,21 +190,33 @@
               <span class="w-2 h-2 rounded-full bg-rose-400"></span>
               <span>20 Limit (35 km/h)</span>
             </button>
-            <button onclick="loadScenario('sl40')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              <span>40 Limit (40 km/h)</span>
-            </button>
-            <button onclick="loadScenario('stop_approach')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-              <span>Stop Ahead (25 km/h)</span>
-            </button>
             <button onclick="loadScenario('stop_satisfied')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
               <span>Stop Held (2.5s)</span>
             </button>
-            <button onclick="loadScenario('school')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+            <button onclick="loadScenario('left_turn')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>Left Turn (-60°)</span>
+            </button>
+            <button onclick="loadScenario('right_turn')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>Right Turn (+60°)</span>
+            </button>
+            <button onclick="loadScenario('u_turn')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              <span>U-Turn (180°)</span>
+            </button>
+            <button onclick="loadScenario('ped_yield')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Pedestrian Yield (0)</span>
+            </button>
+            <button onclick="loadScenario('ped_violation')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span>Pedestrian Fail (35)</span>
+            </button>
+            <button onclick="loadScenario('horn_silence')" class="px-2.5 py-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-left transition flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-              <span>School Ahead Zone</span>
+              <span>Silence Zone</span>
             </button>
           </div>
         </div>
@@ -230,7 +242,7 @@
             <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
             <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Digital Instrument Cluster</span>
           </div>
-          <span class="text-xs text-slate-400">Input Mode: <strong class="text-cyan-400 font-mono-code">SIMULATED SPEED</strong></span>
+          <span class="text-xs text-slate-400">Input Mode: <strong class="text-cyan-400 font-mono-code">SIMULATED ADAS CONTEXT</strong></span>
         </div>
 
         <!-- Gauge & Badges Center Display -->
@@ -310,6 +322,77 @@
         </div>
       </div>
 
+      <!-- MULTI-MODAL DRIVING CONTEXT CONTROLS (TURN, HORN, PEDESTRIAN) -->
+      <div class="glass-card rounded-2xl p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800/60">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+            <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Multi-Modal Driving Context Controls</span>
+          </div>
+          <span class="text-xs font-mono-code text-cyan-400">Steering | Horn | Pedestrian</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          
+          <!-- 1. Steering & Heading Angle -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col justify-between gap-2">
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-400 font-medium flex items-center gap-1">
+                  <i data-lucide="compass" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span>Steering Angle</span>
+                </span>
+                <span id="headingReadout" class="font-mono-code text-emerald-400 font-bold">0° (Straight)</span>
+              </div>
+              <p class="text-[11px] text-slate-500">Evaluates Left, Right, and U-Turn signs</p>
+            </div>
+            <div class="grid grid-cols-2 gap-1.5 text-xs font-mono-code">
+              <button onclick="setHeading(-60)" class="p-1.5 rounded bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 border border-slate-700 text-center transition">Left (-60°)</button>
+              <button onclick="setHeading(0)" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-center transition">Straight (0°)</button>
+              <button onclick="setHeading(60)" class="p-1.5 rounded bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 border border-slate-700 text-center transition">Right (+60°)</button>
+              <button onclick="setHeading(180)" class="p-1.5 rounded bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 border border-slate-700 text-center transition">U-Turn (180°)</button>
+            </div>
+          </div>
+
+          <!-- 2. Acoustic Horn Button -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col justify-between gap-2">
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-400 font-medium flex items-center gap-1">
+                  <i data-lucide="volume-x" class="w-3.5 h-3.5 text-amber-400"></i>
+                  <span>Acoustic Horn</span>
+                </span>
+                <span id="hornStatusTag" class="font-mono-code text-slate-400 font-bold">Silent</span>
+              </div>
+              <p class="text-[11px] text-slate-500">Silence zone (Class 12) violation check</p>
+            </div>
+            <button id="hornBtn" onclick="pressHorn()" class="w-full py-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-xs border border-amber-500/40 flex items-center justify-center gap-2 active:scale-95 transition">
+              <i data-lucide="volume-2" class="w-4 h-4"></i>
+              <span>HONK HORN (BEEP)</span>
+            </button>
+          </div>
+
+          <!-- 3. Pedestrian Crossing Switch -->
+          <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col justify-between gap-2">
+            <div>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-400 font-medium flex items-center gap-1">
+                  <i data-lucide="footprints" class="w-3.5 h-3.5 text-rose-400"></i>
+                  <span>Pedestrian Crossing</span>
+                </span>
+                <span id="pedStatusTag" class="font-mono-code text-slate-400 font-bold">Clear</span>
+              </div>
+              <p class="text-[11px] text-slate-500">Zebra crossing right-of-way check</p>
+            </div>
+            <button id="pedToggleBtn" onclick="togglePedestrian()" class="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-2 transition">
+              <i data-lucide="user-check" class="w-4 h-4 text-cyan-400"></i>
+              <span id="pedBtnText">Toggle: Pedestrian Present</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
       <!-- COMPLIANCE DECISION ENGINE VERDICT CARD -->
       <div id="verdictCard" class="glass-card rounded-2xl p-5 border transition-all duration-300 glow-green">
         <div class="flex items-center justify-between mb-3">
@@ -384,7 +467,84 @@
     let stoppedSeconds = 0.0;
     let stopTimerInterval = null;
 
-    // Preloaded scenario data with base64 / real photos
+    // Multi-Modal Context Variables
+    let currentHeading = 0.0; // 0 = straight, -60 = left, +60 = right, 180 = u-turn
+    let hornActive = false;
+    let pedestrianPresent = false;
+
+    // Web Audio Synthesizer for Car Horn
+    function playCarHorn() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc1.type = 'sawtooth';
+        osc2.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(435, ctx.currentTime);
+        osc2.frequency.setValueAtTime(345, ctx.currentTime);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+        osc1.start();
+        osc2.start();
+        osc1.stop(ctx.currentTime + 0.45);
+        osc2.stop(ctx.currentTime + 0.45);
+      } catch(e) {
+        console.log("AudioContext not permitted yet");
+      }
+    }
+
+    function pressHorn() {
+      hornActive = true;
+      playCarHorn();
+      document.getElementById("hornStatusTag").innerText = "HONKING!";
+      document.getElementById("hornStatusTag").className = "font-mono-code text-rose-400 font-bold animate-pulse";
+      logEvent("Acoustic horn triggered!");
+      renderUI();
+
+      setTimeout(() => {
+        hornActive = false;
+        document.getElementById("hornStatusTag").innerText = "Silent";
+        document.getElementById("hornStatusTag").className = "font-mono-code text-slate-400 font-bold";
+        renderUI();
+      }, 2000);
+    }
+
+    function setHeading(deg) {
+      currentHeading = deg;
+      const tag = document.getElementById("headingReadout");
+      let desc = "Straight";
+      if (deg <= -30) desc = "Left Turn";
+      else if (deg >= 30 && deg < 140) desc = "Right Turn";
+      else if (Math.abs(deg) >= 140) desc = "U-Turn";
+
+      tag.innerText = `${deg}° (${desc})`;
+      logEvent(`Steering angle set to ${deg}° (${desc})`);
+      renderUI();
+    }
+
+    function togglePedestrian() {
+      pedestrianPresent = !pedestrianPresent;
+      const tag = document.getElementById("pedStatusTag");
+      const btn = document.getElementById("pedToggleBtn");
+      if (pedestrianPresent) {
+        tag.innerText = "PEDESTRIAN PRESENT";
+        tag.className = "font-mono-code text-rose-400 font-bold animate-pulse";
+        btn.className = "w-full py-2 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-rose-300 font-semibold text-xs border border-rose-800 flex items-center justify-center gap-2 transition";
+        logEvent("Pedestrian detected on crossing!");
+      } else {
+        tag.innerText = "Clear";
+        tag.className = "font-mono-code text-slate-400 font-bold";
+        btn.className = "w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-2 transition";
+        logEvent("Pedestrian crossing is clear.");
+      }
+      renderUI();
+    }
+
+    // Preloaded scenario data with photos
     const SCENARIOS = {
       sl20: {
         signId: 2,
@@ -392,11 +552,10 @@
         limit: 20,
         speed: 15,
         conf: 0.96,
+        heading: 0,
+        horn: false,
+        ped: false,
         img: "Test Photos/20 speed limit.jpg",
-        status: "COMPLIANT",
-        title: "Speed Compliant: 15 km/h (Limit: 20 km/h)",
-        msg: "Vehicle is traveling at safe speeds within the active 20 km/h school/residential zone.",
-        note: "Limit enforced via IRC-67 standard. Speed verified compliant."
       },
       sl20_viol: {
         signId: 2,
@@ -404,35 +563,10 @@
         limit: 20,
         speed: 35,
         conf: 0.94,
+        heading: 0,
+        horn: false,
+        ped: false,
         img: "Test Photos/20 speed limit.jpg",
-        status: "VIOLATION",
-        title: "VIOLATION: Speeding 35 km/h (Limit: 20 km/h)",
-        msg: "Driver exceeded active speed ceiling by 15 km/h! Audio warning issued.",
-        note: "Over-speed alert active. Brake application requested."
-      },
-      sl40: {
-        signId: 3,
-        name: "Speed Limit 40",
-        limit: 40,
-        speed: 40,
-        conf: 0.92,
-        img: "Test Photos/40 speed limit.jpg",
-        status: "COMPLIANT",
-        title: "Speed Compliant: 40 km/h (Limit: 40 km/h)",
-        msg: "Vehicle speed is exactly at the configured 40 km/h boundary limit.",
-        note: "Cruising at designated speed limit."
-      },
-      stop_approach: {
-        signId: 0,
-        name: "Stop",
-        limit: activeLimit,
-        speed: 25,
-        conf: 0.98,
-        img: "Test Photos/stop sign.jpeg",
-        status: "CHECK_REQUIRED",
-        title: "CHECK REQUIRED: Stop Sign Active",
-        msg: "Stop sign detected! Vehicle must come to a complete halt (speed <= 1 km/h for 2.0s).",
-        note: "Stop requirement pending: current speed 25 km/h > 0 km/h threshold."
       },
       stop_satisfied: {
         signId: 0,
@@ -441,28 +575,80 @@
         speed: 0,
         stoppedSeconds: 2.5,
         conf: 0.98,
+        heading: 0,
+        horn: false,
+        ped: false,
         img: "Test Photos/stop sign.jpeg",
-        status: "COMPLIANT",
-        title: "COMPLIANT: Stop Requirement Satisfied",
-        msg: "Vehicle came to a complete halt and held stationary for 2.5s (>= 2.0s required).",
-        note: "Stop duration verified via temporal tracking. Safe to proceed."
       },
-      school: {
-        signId: 7,
-        name: "School Ahead",
+      left_turn: {
+        signId: 9,
+        name: "Left Turn",
         limit: activeLimit,
-        speed: 28,
-        conf: 0.91,
-        img: "Test Photos/school ahead.png",
-        status: "WARNING",
-        title: "CAUTION: School Ahead Zone",
-        msg: "Caution: School zone. Drive attentively and watch for pedestrians & children.",
-        note: "Compliance not verified: Pedestrian presence and yielding require external pedestrian detection sensors."
+        speed: 20,
+        conf: 0.94,
+        heading: -60,
+        horn: false,
+        ped: false,
+        img: "Test Photos/left turn.jpg",
+      },
+      right_turn: {
+        signId: 10,
+        name: "Right Turn",
+        limit: activeLimit,
+        speed: 20,
+        conf: 0.92,
+        heading: 60,
+        horn: false,
+        ped: false,
+        img: "Test Photos/right turn.jpg",
+      },
+      u_turn: {
+        signId: 11,
+        name: "U-Turn",
+        limit: activeLimit,
+        speed: 15,
+        conf: 0.95,
+        heading: 180,
+        horn: false,
+        ped: false,
+        img: "Test Photos/u turn.jpg",
+      },
+      ped_yield: {
+        signId: 8,
+        name: "Pedestrian Crossing",
+        limit: activeLimit,
+        speed: 0,
+        conf: 0.93,
+        heading: 0,
+        horn: false,
+        ped: true,
+        img: "Test Photos/pedestrian.jpg",
+      },
+      ped_violation: {
+        signId: 8,
+        name: "Pedestrian Crossing",
+        limit: activeLimit,
+        speed: 35,
+        conf: 0.93,
+        heading: 0,
+        horn: false,
+        ped: true,
+        img: "Test Photos/pedestrian.jpg",
+      },
+      horn_silence: {
+        signId: 12,
+        name: "Horn Prohibited",
+        limit: activeLimit,
+        speed: 25,
+        conf: 0.95,
+        heading: 0,
+        horn: false,
+        ped: false,
+        img: "Test Photos/horn.png",
       }
     };
 
     function updateGauge(speed, limit) {
-      // 0 to 140 km/h mapped to 0 to 283 arc dashoffset
       const maxSpeed = 140;
       const totalDash = 283;
       const progress = Math.min(speed / maxSpeed, 1.0);
@@ -473,7 +659,6 @@
 
       document.getElementById("digitalSpeed").innerText = Math.round(speed);
       
-      // Update Speed Status Pill
       const pill = document.getElementById("speedStatusPill");
       if (speed <= 0) {
         pill.innerText = "Stationary (0 km/h)";
@@ -488,17 +673,13 @@
     }
 
     function renderUI() {
-      // 1. Gauge
       updateGauge(currentSpeed, activeLimit);
 
-      // 2. Speed Limit Badge
       const badgeVal = document.getElementById("speedLimitValue");
       badgeVal.innerText = activeLimit ? activeLimit : "--";
 
-      // 3. Slider
       document.getElementById("speedSlider").value = currentSpeed;
 
-      // 4. Decision Engine Verdict
       const card = document.getElementById("verdictCard");
       const badge = document.getElementById("statusBadge");
       const title = document.getElementById("verdictTitle");
@@ -511,7 +692,7 @@
       let msgText = "";
       let auditText = "";
 
-      // Decision rules
+      // Multi-Modal Decision Rules
       if (currentSignId === 0) {
         // Stop Sign
         if (stoppedSeconds >= 2.0) {
@@ -530,16 +711,96 @@
           msgText = `Vehicle is moving at ${Math.round(currentSpeed)} km/h. Deceleration to 0 km/h required.`;
           auditText = "Stop event registered; vehicle motion currently in progress.";
         }
+      } else if (currentSignId === 12) {
+        // Horn Prohibited / Silence Zone
+        if (hornActive) {
+          status = "VIOLATION";
+          titleText = "VIOLATION: Illegal Horn in Silence Zone!";
+          msgText = "Acoustic horn sounded inside designated hospital/school silence zone!";
+          auditText = "Acoustic sensor verified illegal horn actuation in silence sector.";
+          speakAlert("Warning: Horn prohibited in silence zone!");
+        } else if (activeLimit && currentSpeed > activeLimit) {
+          status = "VIOLATION";
+          titleText = `Speeding: ${Math.round(currentSpeed)} km/h (Limit: ${activeLimit} km/h)`;
+          msgText = `Horn quiet, but speed limit exceeded in silence zone.`;
+          auditText = "Speed telemetry exceeds active limit.";
+        } else {
+          status = "COMPLIANT";
+          titleText = "Silence Zone: Horn Prohibition Compliant";
+          msgText = "No horn actuation detected. Vehicle maintaining quiet zone protocol.";
+          auditText = "Acoustic sensor verified zero horn actuations.";
+        }
+      } else if (currentSignId === 8) {
+        // Pedestrian Crossing
+        if (pedestrianPresent) {
+          if (currentSpeed <= 5.0) {
+            status = "COMPLIANT";
+            titleText = `Yielded Right-of-Way (${Math.round(currentSpeed)} km/h)`;
+            msgText = "Vehicle decelerated / halted for pedestrian on zebra crossing.";
+            auditText = "Zebra crossing occupied; driver safely yielded right-of-way.";
+          } else {
+            status = "VIOLATION";
+            titleText = `VIOLATION: Failure to Yield to Pedestrian!`;
+            msgText = `Vehicle passing crossing at ${Math.round(currentSpeed)} km/h while pedestrian is present!`;
+            auditText = "Pedestrian present on roadway; driver failed to brake or yield.";
+            speakAlert("Danger! Pedestrian crossing occupied! Stop immediately!");
+          }
+        } else {
+          status = "COMPLIANT";
+          titleText = "Pedestrian Crossing Clear";
+          msgText = "No pedestrians on crossing. Roadway clear to proceed safely.";
+          auditText = "Pedestrian sensor clear; speed compliant.";
+        }
+      } else if (currentSignId === 9) {
+        // Left Turn
+        if (currentHeading <= -30) {
+          status = "COMPLIANT";
+          titleText = `Left Turn Executed (${Math.round(currentHeading)}°)`;
+          msgText = "Vehicle steering trajectory confirmed mandated left turn.";
+          auditText = "Compass / yaw rate confirmed vehicle followed mandatory directional arrow.";
+        } else {
+          status = "CHECK_REQUIRED";
+          titleText = `Mandatory Left Turn Required (${Math.round(currentHeading)}°)`;
+          msgText = "Vehicle is still heading straight. Left steering maneuver pending.";
+          auditText = "Steering angle currently straight. Directional turn pending.";
+        }
+      } else if (currentSignId === 10) {
+        // Right Turn
+        if (currentHeading >= 30) {
+          status = "COMPLIANT";
+          titleText = `Right Turn Executed (${Math.round(currentHeading)}°)`;
+          msgText = "Vehicle steering trajectory confirmed mandated right turn.";
+          auditText = "Compass / yaw rate confirmed vehicle followed mandatory directional arrow.";
+        } else {
+          status = "CHECK_REQUIRED";
+          titleText = `Mandatory Right Turn Required (${Math.round(currentHeading)}°)`;
+          msgText = "Vehicle is still heading straight. Right steering maneuver pending.";
+          auditText = "Steering angle currently straight. Directional turn pending.";
+        }
+      } else if (currentSignId === 11) {
+        // U-Turn
+        if (Math.abs(currentHeading) >= 140) {
+          status = "COMPLIANT";
+          titleText = `U-Turn Completed (${Math.round(currentHeading)}°)`;
+          msgText = "Vehicle completed 180° heading reversal.";
+          auditText = "Yaw rate sensor confirmed full directional reversal.";
+        } else {
+          status = "CHECK_REQUIRED";
+          titleText = `U-Turn Pending (${Math.round(currentHeading)}°)`;
+          msgText = "180° heading reversal maneuver in progress.";
+          auditText = "Awaiting 180° heading reversal trajectory.";
+        }
       } else if (activeLimit && currentSpeed > activeLimit) {
         status = "VIOLATION";
         titleText = `Speeding: ${Math.round(currentSpeed)} km/h (Limit: ${activeLimit} km/h)`;
         msgText = `Speed exceeds active speed limit by ${Math.round(currentSpeed - activeLimit)} km/h. Reduce vehicle speed immediately.`;
         auditText = "Direct violation: Speed telemetry exceeds active IRC sign ceiling.";
-      } else if ([1, 6, 7, 8, 9, 10, 11, 12, 13, 14].includes(currentSignId)) {
+        speakAlert(`Warning! Speed limit ${activeLimit}. Reduce speed!`);
+      } else if ([1, 6, 7, 13, 14].includes(currentSignId)) {
         status = "WARNING";
         titleText = `Caution: ${currentSignName}`;
         msgText = `Advisory caution active for ${currentSignName}. Exercise attentiveness.`;
-        auditText = "Compliance not verified: Specific maneuver compliance requires additional steering/acoustic/GPS sensors.";
+        auditText = "Compliance not verified: Specific maneuver compliance requires additional sensors.";
       } else if (activeLimit) {
         status = "COMPLIANT";
         titleText = `Speed Compliant: ${Math.round(currentSpeed)} km/h (Limit: ${activeLimit} km/h)`;
@@ -552,40 +813,37 @@
         auditText = "Default state. Awaiting visual detection of regulatory signs.";
       }
 
-      // Update Card Visuals & Badges
+      // Card Visual Updates
       card.className = "glass-card rounded-2xl p-5 border transition-all duration-300";
       badge.innerText = status;
 
       if (status === "COMPLIANT") {
         card.classList.add("glow-green");
         badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
-        sensorTag.innerText = "Telemetry Compliant";
+        sensorTag.innerText = "Context Compliant";
         sensorTag.className = "text-[11px] font-mono-code text-emerald-400";
       } else if (status === "VIOLATION") {
         card.classList.add("glow-red");
         badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-rose-500/20 text-rose-400 border border-rose-500/50";
         sensorTag.innerText = "Violation Detected";
         sensorTag.className = "text-[11px] font-mono-code text-rose-400";
-        speakAlert(`Warning! Speed limit ${activeLimit}. Reduce speed!`);
       } else if (status === "WARNING") {
         card.classList.add("glow-amber");
         badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40";
-        sensorTag.innerText = "External Sensor Gap";
+        sensorTag.innerText = "Advisory Warning";
         sensorTag.className = "text-[11px] font-mono-code text-amber-400";
-        speakAlert(`Caution: ${currentSignName}`);
       } else if (status === "CHECK_REQUIRED") {
         card.classList.add("glow-cyan");
         badge.className = "px-3 py-1 rounded-full text-xs font-hud font-bold tracking-wider uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/40";
-        sensorTag.innerText = "Stop Check Active";
+        sensorTag.innerText = "Maneuver Pending";
         sensorTag.className = "text-[11px] font-mono-code text-cyan-400";
-        if (currentSpeed > 5) speakAlert("Stop sign ahead!");
       }
 
       title.innerText = titleText;
       msg.innerText = msgText;
       auditNote.innerText = auditText;
 
-      // Stop Timer UI Bar
+      // Stop Timer UI
       const timerBar = document.getElementById("stopTimerBar");
       const timerSec = document.getElementById("stopTimerSeconds");
       if (currentSignId === 0) {
@@ -637,11 +895,7 @@
       stopTimerInterval = setInterval(() => {
         if (currentSpeed <= 1.0 && currentSignId === 0) {
           stoppedSeconds += 0.2;
-          if (stoppedSeconds >= 2.0) {
-            renderUI();
-          } else {
-            renderUI();
-          }
+          renderUI();
         }
       }, 200);
     }
@@ -666,6 +920,23 @@
       currentSpeed = s.speed;
       currentConfidence = s.conf;
       stoppedSeconds = s.stoppedSeconds || 0.0;
+      currentHeading = s.heading !== undefined ? s.heading : 0.0;
+      hornActive = s.horn || false;
+      pedestrianPresent = s.ped || false;
+
+      // Update UI headings & tags
+      setHeading(currentHeading);
+      const pedTag = document.getElementById("pedStatusTag");
+      const pedBtn = document.getElementById("pedToggleBtn");
+      if (pedestrianPresent) {
+        pedTag.innerText = "PEDESTRIAN PRESENT";
+        pedTag.className = "font-mono-code text-rose-400 font-bold animate-pulse";
+        pedBtn.className = "w-full py-2 rounded-lg bg-rose-950/80 hover:bg-rose-900 text-rose-300 font-semibold text-xs border border-rose-800 flex items-center justify-center gap-2 transition";
+      } else {
+        pedTag.innerText = "Clear";
+        pedTag.className = "font-mono-code text-slate-400 font-bold";
+        pedBtn.className = "w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs border border-slate-700 flex items-center justify-center gap-2 transition";
+      }
 
       // Update vision feed
       document.getElementById("feedImage").src = s.img;
@@ -674,15 +945,15 @@
       document.getElementById("visionConfidence").innerText = `Confidence: ${(s.conf * 100).toFixed(0)}%`;
       document.getElementById("bboxLabel").innerText = `${s.name} [${(s.conf * 100).toFixed(0)}%]`;
 
-      // Set bbox position mock
       const bbox = document.getElementById("bboxOverlay");
+      bbox.style.display = "flex";
       bbox.style.top = "18%";
       bbox.style.left = "28%";
       bbox.style.width = "44%";
       bbox.style.height = "56%";
 
       renderUI();
-      logEvent(`Loaded scenario: ${s.name} @ ${s.speed} km/h -> [${s.status}]`);
+      logEvent(`Loaded scenario: ${s.name} (Speed: ${s.speed} km/h, Heading: ${currentHeading}°)`);
     }
 
     function resetContext() {
@@ -690,9 +961,13 @@
       currentSignId = null;
       currentSignName = "None";
       stoppedSeconds = 0.0;
+      currentHeading = 0.0;
+      hornActive = false;
+      pedestrianPresent = false;
+      setHeading(0);
       stopStopTimer();
       renderUI();
-      logEvent("Context state and active speed limit reset to default.");
+      logEvent("Context state reset.");
     }
 
     function toggleAudio() {
@@ -747,7 +1022,6 @@
         document.getElementById("feedImage").src = base64Data;
         logEvent(`Uploaded photo: ${file.name}. Scanning with YOLOv8...`);
         
-        // Show scanning state in HUD
         const confTag = document.getElementById("visionConfidence");
         confTag.innerText = "Scanning with YOLOv8...";
         confTag.className = "text-xs font-mono-code text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40 animate-pulse";
@@ -759,6 +1033,9 @@
             body: JSON.stringify({
               image: base64Data,
               speed_kmh: currentSpeed,
+              heading_deg: currentHeading,
+              horn_active: hornActive,
+              pedestrian_present: pedestrianPresent,
               confidence_threshold: 0.25
             })
           });
@@ -781,7 +1058,6 @@
               activeLimit = data.active_speed_limit;
             }
 
-            // Position Bounding Box proportionally
             if (data.bbox && data.image_width && data.image_height) {
               const x1 = data.bbox[0];
               const y1 = data.bbox[1];
@@ -809,7 +1085,6 @@
             renderUI();
             logEvent(`Detected: ${currentSignName} (${Math.round(currentConfidence * 100)}%)`);
           } else {
-            // No sign found in uploaded image
             currentSignId = null;
             currentSignName = "None Detected";
             currentConfidence = 0.0;
@@ -833,9 +1108,8 @@
       reader.readAsDataURL(file);
     }
 
-    // Initialize on load
     window.onload = function() {
-      loadScenario("sl40");
+      loadScenario("sl20");
     };
   </script>
 </body>

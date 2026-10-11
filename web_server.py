@@ -94,11 +94,18 @@ class ADASCockpitHandler(SimpleHTTPRequestHandler):
                     primary_conf = float(top_det.get("conf", 0.0))
                     bbox = [int(v) for v in top_det.get("bbox", [])]
 
+                heading_deg = data.get("heading_deg")
+                horn_active = data.get("horn_active")
+                pedestrian_present = data.get("pedestrian_present")
+
                 # Run compliance check
                 compliance_result = engine.check(
                     sign_id=primary_sign_id,
                     speed_kmh=speed_kmh,
                     confidence=primary_conf,
+                    heading_deg=heading_deg,
+                    horn_active=horn_active,
+                    pedestrian_present=pedestrian_present,
                 )
 
                 response_payload = {
@@ -136,12 +143,18 @@ class ADASCockpitHandler(SimpleHTTPRequestHandler):
                 speed_kmh = data.get("speed_kmh")
                 confidence = float(data.get("confidence", 0.90))
                 stopped_sec = data.get("stopped_seconds")
+                heading_deg = data.get("heading_deg")
+                horn_active = data.get("horn_active")
+                pedestrian_present = data.get("pedestrian_present")
 
                 result = engine.check(
                     sign_id=sign_id,
                     speed_kmh=speed_kmh,
                     confidence=confidence,
                     stopped_seconds=stopped_sec,
+                    heading_deg=heading_deg,
+                    horn_active=horn_active,
+                    pedestrian_present=pedestrian_present,
                 )
 
                 self.send_response(200)
