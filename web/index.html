@@ -135,20 +135,33 @@
             <i data-lucide="camera" class="w-4 h-4 text-cyan-400"></i>
             <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Live Perception Feed</span>
           </div>
-          <span id="visionConfidence" class="text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
-            Confidence: 94%
-          </span>
+          <div class="flex items-center gap-2">
+            <span id="streamStatsTag" class="hidden text-[10px] font-mono-code text-emerald-400 bg-emerald-950/70 px-2 py-0.5 rounded border border-emerald-800/50">
+              <span id="streamFpsTag">0 FPS</span> • <span id="streamLatencyTag">0ms</span>
+            </span>
+            <span id="visionConfidence" class="text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+              Confidence: 94%
+            </span>
+          </div>
         </div>
 
         <!-- Vision Canvas Area -->
         <div class="relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center group">
           <img id="feedImage" src="" alt="Traffic Sign Feed" class="w-full h-full object-cover">
+          <video id="streamVideo" autoplay playsinline muted loop class="w-full h-full object-cover hidden"></video>
+          <canvas id="captureCanvas" class="hidden"></canvas>
           
           <!-- HUD Corner Accents -->
           <div class="absolute top-2 left-2 border-t-2 border-l-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
           <div class="absolute top-2 right-2 border-t-2 border-r-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
           <div class="absolute bottom-2 left-2 border-b-2 border-l-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
           <div class="absolute bottom-2 right-2 border-b-2 border-r-2 border-cyan-500/70 w-4 h-4 pointer-events-none"></div>
+
+          <!-- Live Streaming Active Badge -->
+          <div id="liveStreamBadge" class="hidden absolute top-3 left-3 bg-rose-600/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-lg shadow-rose-600/30 animate-pulse pointer-events-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
+            <span id="liveStreamBadgeText">LIVE CAMERA</span>
+          </div>
 
           <!-- Bounding Box Overlay -->
           <div id="bboxOverlay" class="absolute border-2 border-emerald-400 bg-emerald-500/10 rounded pointer-events-none transition-all duration-300 flex flex-col justify-start">
@@ -173,6 +186,31 @@
                 Stabilized (Smoothed)
               </span>
             </div>
+          </div>
+        </div>
+
+        <!-- Vision Source Toolbar (Camera / Dashcam Video) -->
+        <div class="flex flex-col gap-2 pt-1 border-b border-slate-800/80 pb-3">
+          <div class="flex items-center gap-2">
+            <!-- Start / Stop Live Camera Button -->
+            <button id="toggleCameraBtn" onclick="toggleCamera()" class="flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-600/25 transition cursor-pointer">
+              <i id="cameraBtnIcon" data-lucide="video" class="w-4 h-4"></i>
+              <span id="cameraBtnText">Start Live Camera</span>
+            </button>
+
+            <!-- Dashcam Video Upload Button -->
+            <label class="cursor-pointer py-2 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="film" class="w-4 h-4 text-emerald-400"></i>
+              <span>Dashcam Video</span>
+              <input type="file" id="videoFileUploader" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" class="hidden" onchange="handleVideoFileUpload(event)">
+            </label>
+          </div>
+
+          <!-- Camera device dropdown (if multiple video inputs exist) -->
+          <div id="cameraSelectContainer" class="hidden flex items-center gap-2 text-xs">
+            <span class="text-slate-400 text-[11px] font-mono-code">Device:</span>
+            <select id="cameraSourceSelect" onchange="switchCamera(this.value)" class="flex-1 bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg p-1.5 focus:ring-1 focus:ring-cyan-500 focus:outline-none font-mono-code">
+            </select>
           </div>
         </div>
 
@@ -486,6 +524,19 @@
     let hornActive = false;
     let pedestrianPresent = false;
 
+    // Video / Camera Streaming State
+    let isCameraActive = false;
+    let isVideoFileActive = false;
+    let isStreaming = false;
+    let isDetecting = false;
+    let streamInterval = null;
+    let currentStreamTrack = null;
+    let lastFrameTime = performance.now();
+    let streamFps = 0;
+    let latencyMs = 0;
+    let selectedCameraId = null;
+    let lastLoggedSign = "";
+
     // Web Audio Synthesizer for Car Horn
     function playCarHorn() {
       try {
@@ -569,7 +620,7 @@
         heading: 0,
         horn: false,
         ped: false,
-        img: "Test Photos/20 speed limit.jpg",
+        img: "Test Photos/speed_limit_20_01.jpg",
       },
       sl20_viol: {
         signId: 2,
@@ -580,7 +631,7 @@
         heading: 0,
         horn: false,
         ped: false,
-        img: "Test Photos/20 speed limit.jpg",
+        img: "Test Photos/speed_limit_20_01.jpg",
       },
       stop_satisfied: {
         signId: 0,
@@ -592,7 +643,7 @@
         heading: 0,
         horn: false,
         ped: false,
-        img: "Test Photos/stop sign.jpeg",
+        img: "Test Photos/stop_01.jpg",
       },
       left_turn: {
         signId: 9,
@@ -603,7 +654,7 @@
         heading: -60,
         horn: false,
         ped: false,
-        img: "Test Photos/left turn.jpg",
+        img: "Test Photos/left_turn_01.jpg",
       },
       right_turn: {
         signId: 10,
@@ -614,7 +665,7 @@
         heading: 60,
         horn: false,
         ped: false,
-        img: "Test Photos/right turn.jpg",
+        img: "Test Photos/right_turn_01.jpg",
       },
       u_turn: {
         signId: 11,
@@ -625,7 +676,7 @@
         heading: 180,
         horn: false,
         ped: false,
-        img: "Test Photos/u turn.jpg",
+        img: "Test Photos/u-turn_01.jpg",
       },
       ped_yield: {
         signId: 8,
@@ -636,7 +687,7 @@
         heading: 0,
         horn: false,
         ped: true,
-        img: "Test Photos/pedestrian.jpg",
+        img: "Test Photos/pedestrian_crossing_01.jpg",
       },
       ped_violation: {
         signId: 8,
@@ -647,7 +698,7 @@
         heading: 0,
         horn: false,
         ped: true,
-        img: "Test Photos/pedestrian.jpg",
+        img: "Test Photos/pedestrian_crossing_01.jpg",
       },
       horn_silence: {
         signId: 12,
@@ -658,7 +709,7 @@
         heading: 0,
         horn: false,
         ped: false,
-        img: "Test Photos/horn.png",
+        img: "Test Photos/horn_prohibited_01.jpg",
       }
     };
 
@@ -924,9 +975,286 @@
       }
     }
 
+    function switchToStaticMode(imgSrc) {
+      stopStream();
+      const video = document.getElementById("streamVideo");
+      const img = document.getElementById("feedImage");
+      if (video) video.classList.add("hidden");
+      if (img) {
+        img.classList.remove("hidden");
+        if (imgSrc) img.src = imgSrc;
+      }
+      const badge = document.getElementById("liveStreamBadge");
+      if (badge) badge.classList.add("hidden");
+      const stats = document.getElementById("streamStatsTag");
+      if (stats) stats.classList.add("hidden");
+      resetCameraBtn();
+    }
+
+    function switchToStreamMode(sourceLabel) {
+      const video = document.getElementById("streamVideo");
+      const img = document.getElementById("feedImage");
+      if (img) img.classList.add("hidden");
+      if (video) video.classList.remove("hidden");
+      const badge = document.getElementById("liveStreamBadge");
+      const badgeText = document.getElementById("liveStreamBadgeText");
+      if (badge && badgeText) {
+        badge.classList.remove("hidden");
+        badgeText.innerText = sourceLabel || "LIVE STREAM";
+      }
+      const stats = document.getElementById("streamStatsTag");
+      if (stats) stats.classList.remove("hidden");
+    }
+
+    function resetCameraBtn() {
+      const btn = document.getElementById("toggleCameraBtn");
+      const text = document.getElementById("cameraBtnText");
+      const icon = document.getElementById("cameraBtnIcon");
+      if (btn) {
+        btn.className = "flex-1 py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-600/25 transition cursor-pointer";
+      }
+      if (text) text.innerText = "Start Live Camera";
+      if (icon) icon.setAttribute("data-lucide", "video");
+      lucide.createIcons();
+    }
+
+    async function initCameraDevices() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const container = document.getElementById("cameraSelectContainer");
+        const select = document.getElementById("cameraSourceSelect");
+
+        if (videoDevices.length > 1 && container && select) {
+          container.classList.remove("hidden");
+          select.innerHTML = "";
+          videoDevices.forEach((dev, idx) => {
+            const opt = document.createElement("option");
+            opt.value = dev.deviceId;
+            opt.text = dev.label || `Camera ${idx + 1}`;
+            select.appendChild(opt);
+          });
+          if (!selectedCameraId) selectedCameraId = videoDevices[0].deviceId;
+        }
+      } catch (e) {
+        console.warn("Could not enumerate camera devices:", e);
+      }
+    }
+
+    async function switchCamera(deviceId) {
+      selectedCameraId = deviceId;
+      if (isCameraActive) {
+        await startCamera(deviceId);
+      }
+    }
+
+    async function toggleCamera() {
+      if (isCameraActive) {
+        stopStream();
+        logEvent("Live camera stopped.");
+      } else {
+        await startCamera(selectedCameraId);
+      }
+    }
+
+    async function startCamera(deviceId = null) {
+      stopStream();
+
+      const video = document.getElementById("streamVideo");
+      const constraints = {
+        audio: false,
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "environment"
+        }
+      };
+
+      if (deviceId) {
+        constraints.video.deviceId = { exact: deviceId };
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        currentStreamTrack = stream;
+        await video.play();
+
+        isCameraActive = true;
+        isVideoFileActive = false;
+        switchToStreamMode("LIVE CAMERA");
+
+        const btn = document.getElementById("toggleCameraBtn");
+        const text = document.getElementById("cameraBtnText");
+        const icon = document.getElementById("cameraBtnIcon");
+        if (btn) {
+          btn.className = "flex-1 py-2 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-rose-600/30 transition animate-pulse cursor-pointer";
+        }
+        if (text) text.innerText = "Stop Camera";
+        if (icon) icon.setAttribute("data-lucide", "square");
+        lucide.createIcons();
+
+        logEvent("Live camera feed started. Streaming to YOLOv8 inference pipeline...");
+        startInferenceLoop("Live Camera");
+
+        // Refresh devices to get permission-unlocked labels
+        initCameraDevices();
+      } catch (err) {
+        console.error("Camera access error:", err);
+        logEvent(`Camera error: ${err.name || err.message}`);
+        alert(`Could not open camera (${err.message}). Ensure camera permissions are enabled for http://localhost:8080.`);
+        resetCameraBtn();
+      }
+    }
+
+    function handleVideoFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      stopStream();
+
+      const video = document.getElementById("streamVideo");
+      const videoUrl = URL.createObjectURL(file);
+      video.srcObject = null;
+      video.src = videoUrl;
+      video.loop = true;
+      video.muted = true;
+      video.play().then(() => {
+        isVideoFileActive = true;
+        isCameraActive = false;
+        switchToStreamMode("DASHCAM VIDEO");
+
+        const btn = document.getElementById("toggleCameraBtn");
+        const text = document.getElementById("cameraBtnText");
+        const icon = document.getElementById("cameraBtnIcon");
+        if (btn) {
+          btn.className = "flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-2 transition cursor-pointer";
+        }
+        if (text) text.innerText = "Stop Video";
+        if (icon) icon.setAttribute("data-lucide", "square");
+        lucide.createIcons();
+
+        logEvent(`Dashcam video loaded: ${file.name}. Running continuous TSR detection...`);
+        startInferenceLoop("Dashcam Video");
+      }).catch(err => {
+        console.error("Error playing video:", err);
+        logEvent(`Video playback error: ${err.message}`);
+      });
+    }
+
+    function stopStream() {
+      isStreaming = false;
+      if (streamInterval) {
+        clearInterval(streamInterval);
+        streamInterval = null;
+      }
+
+      const video = document.getElementById("streamVideo");
+      if (video) {
+        video.pause();
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(track => track.stop());
+          video.srcObject = null;
+        }
+        if (video.src) {
+          URL.revokeObjectURL(video.src);
+          video.src = "";
+        }
+      }
+
+      isCameraActive = false;
+      isVideoFileActive = false;
+      currentStreamTrack = null;
+      isDetecting = false;
+
+      resetCameraBtn();
+      const badge = document.getElementById("liveStreamBadge");
+      if (badge) badge.classList.add("hidden");
+      const stats = document.getElementById("streamStatsTag");
+      if (stats) stats.classList.add("hidden");
+    }
+
+    function startInferenceLoop(sourceLabel) {
+      if (streamInterval) clearInterval(streamInterval);
+      isStreaming = true;
+      isDetecting = false;
+      lastFrameTime = performance.now();
+
+      const canvas = document.getElementById("captureCanvas");
+      const ctx = canvas.getContext("2d");
+      const video = document.getElementById("streamVideo");
+
+      streamInterval = setInterval(async () => {
+        if (!isStreaming) return;
+        if (video.paused || video.ended || video.readyState < 2) return;
+        if (isDetecting) return; // Non-blocking: skip frame if backend is processing
+
+        isDetecting = true;
+        const startT = performance.now();
+
+        try {
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 480;
+          const targetW = 640;
+          const targetH = Math.round((vh / vw) * targetW) || 480;
+
+          canvas.width = targetW;
+          canvas.height = targetH;
+          ctx.drawImage(video, 0, 0, targetW, targetH);
+
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
+
+          const resp = await fetch("/api/detect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              image: dataUrl,
+              speed_kmh: currentSpeed,
+              heading_deg: currentHeading,
+              horn_active: hornActive,
+              pedestrian_present: pedestrianPresent,
+              confidence_threshold: 0.25,
+              is_stream: true
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            handleDetectionResult(data, sourceLabel);
+
+            const endT = performance.now();
+            latencyMs = Math.round(endT - startT);
+            const now = performance.now();
+            streamFps = Math.round(1000 / (now - lastFrameTime));
+            lastFrameTime = now;
+
+            updateStreamStats(streamFps, latencyMs);
+          }
+        } catch (e) {
+          console.error("Stream inference error:", e);
+        } finally {
+          isDetecting = false;
+        }
+      }, 100);
+    }
+
+    function updateStreamStats(fps, latency) {
+      const statsTag = document.getElementById("streamStatsTag");
+      const fpsTag = document.getElementById("streamFpsTag");
+      const latTag = document.getElementById("streamLatencyTag");
+      if (statsTag && fpsTag && latTag) {
+        statsTag.classList.remove("hidden");
+        fpsTag.innerText = `${Math.min(fps, 30)} FPS`;
+        latTag.innerText = `${latency}ms`;
+      }
+    }
+
     function loadScenario(key) {
       const s = SCENARIOS[key];
       if (!s) return;
+
+      switchToStaticMode(s.img);
 
       currentSignId = s.signId;
       currentSignName = s.name;
@@ -971,6 +1299,7 @@
     }
 
     function resetContext() {
+      stopStream();
       activeLimit = null;
       currentSignId = null;
       currentSignName = "None";
@@ -1033,7 +1362,7 @@
       const reader = new FileReader();
       reader.onload = async function(evt) {
         const base64Data = evt.target.result;
-        document.getElementById("feedImage").src = base64Data;
+        switchToStaticMode(base64Data);
         logEvent(`Uploaded photo: ${file.name}. Scanning with YOLOv8...`);
         
         const confTag = document.getElementById("visionConfidence");
@@ -1050,7 +1379,8 @@
               heading_deg: currentHeading,
               horn_active: hornActive,
               pedestrian_present: pedestrianPresent,
-              confidence_threshold: 0.25
+              confidence_threshold: 0.25,
+              is_stream: false
             })
           });
 
@@ -1110,20 +1440,31 @@
         confTag.className = "text-xs font-mono-code text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40";
 
         renderUI();
-        logEvent(`Detected: ${currentSignName} (${Math.round(currentConfidence * 100)}%) in ${displayName}`);
+        if (!isStreaming) {
+          logEvent(`Detected: ${currentSignName} (${Math.round(currentConfidence * 100)}%) in ${displayName}`);
+        } else {
+          if (currentSignName !== lastLoggedSign) {
+            logEvent(`Live detection: ${currentSignName} (${Math.round(currentConfidence * 100)}%)`);
+            lastLoggedSign = currentSignName;
+          }
+        }
       } else {
-        currentSignId = null;
-        currentSignName = "None Detected";
-        currentConfidence = 0.0;
         bbox.style.display = "none";
 
-        detectedSignName.innerText = "No Sign Detected";
-        detectedClassId.innerText = "--";
-        confTag.innerText = "No Sign Found";
-        confTag.className = "text-xs font-mono-code text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800";
-
-        renderUI();
-        logEvent(`No traffic sign detected in ${displayName}`);
+        if (!isStreaming) {
+          currentSignId = null;
+          currentSignName = "None Detected";
+          currentConfidence = 0.0;
+          detectedSignName.innerText = "No Sign Detected";
+          detectedClassId.innerText = "--";
+          confTag.innerText = "No Sign Found";
+          confTag.className = "text-xs font-mono-code text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800";
+          renderUI();
+          logEvent(`No traffic sign detected in ${displayName}`);
+        } else {
+          confTag.innerText = "Scanning Feed...";
+          confTag.className = "text-xs font-mono-code text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40";
+        }
       }
     }
 
@@ -1152,7 +1493,7 @@
     async function loadFromPhotoLibrary(filename) {
       if (!filename) return;
       const url = `/Test Photos/${encodeURIComponent(filename)}`;
-      document.getElementById("feedImage").src = url;
+      switchToStaticMode(url);
       logEvent(`Loaded: ${filename}. Scanning with YOLOv8...`);
 
       const confTag = document.getElementById("visionConfidence");
@@ -1174,7 +1515,8 @@
               heading_deg: currentHeading,
               horn_active: hornActive,
               pedestrian_present: pedestrianPresent,
-              confidence_threshold: 0.25
+              confidence_threshold: 0.25,
+              is_stream: false
             })
           });
           if (detectResp.ok) {
@@ -1191,6 +1533,7 @@
     window.onload = function() {
       loadScenario("sl20");
       initPhotoLibrary();
+      initCameraDevices();
     };
   </script>
 </body>

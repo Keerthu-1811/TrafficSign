@@ -87,8 +87,10 @@ class ADASCockpitHandler(SimpleHTTPRequestHandler):
 
                 h, w, _ = frame.shape
 
-                # Reset smoother tracks for static photo detection
-                if pipeline.smoother is not None:
+                is_stream = bool(data.get("is_stream", False))
+
+                # Reset smoother tracks only for static photo detection; keep active for live video streams
+                if not is_stream and pipeline.smoother is not None:
                     pipeline.smoother.tracks.clear()
                     pipeline.smoother.next_id = 0
 
